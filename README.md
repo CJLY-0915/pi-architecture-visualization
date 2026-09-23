@@ -40,8 +40,8 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 
 - 未解析项（`unsupported_input`、`unresolved_reference`）与跳过项（`unsafe_path_skipped`、`sensitive_path_skipped`）都在返回值的 `unresolved` 中并带文件路径，不会被提升为 `confirmed`。
 - 敏感路径（`.env*`、`.ssh/`、`.aws/`、`.git/`、`*.pem`、`*.key`、`id_rsa*`、`credentials*`、`secrets*`、`.npmrc`）和不安全路径（绝对路径、盘符、反斜杠、`.`/`..` 段）从不调用 `readText`。
-- `coverage.complete` 只有在扫描跑完且未触发 `maxFiles`、`totalCharBudget` 或 `timeoutMs` 时才为 `true`。达到任一上限时 `complete` 为 `false` 而 `ok` 仍为 `true`：截断既不算失败，也不会被当成完整结果。选项非法或无法列出文件时 `complete` 同样为 `false`，因为此时没有任何扫描结果可以声称完整。
-- `filesListed = filesScanned + filesSkipped`；被忽略的构建产物和二进制文件只计入 `filesListed`。`ok` 为 `false` 仅表示模型不可用（选项非法、无法列出文件、模型未通过校验）。
+- `coverage.complete` 只有在扫描跑完且未触发 `maxFiles`、`totalCharBudget` 或 `timeoutMs` 时才为 `true`。达到任一上限时 `complete` 为 `false` 而 `ok` 仍为 `true`：截断既不算失败，也不会被当成完整结果。选项非法、无法列出文件、整个范围都被忽略（`no_files_in_scope`）或来源自带任何诊断时 `complete` 同样为 `false`，因为此时没有任何扫描结果可以声称完整。单个文件读失败或超 `maxFileChars` 只记 `file_too_large`/`source_read_failed` 诊断并计入 `filesSkipped`，不因此把整次扫描判为不完整——扣留规模看 `filesSkipped`，不要只读 `complete`。
+- `filesListed` 计入源返回的每一条路径（含按策略忽略的构建产物与二进制）；`filesScanned` 是实际读过的；`filesSkipped` 是列出之后被扣留的（敏感、不安全、读失败、超限）。因此 `filesListed = filesScanned + filesSkipped + 被策略忽略数`，只有什么都没被忽略时前三者才相等。这三个计数与 `complete` 一起写入 `model.json`，因为只读文件本身的消费者也要能看出有文件被扣留。`ok` 为 `false` 仅表示模型不可用（选项非法、无法列出文件、模型未通过校验）。
 - `unknowns` 在采集阶段保持空数组：它承载待回答的架构问题而非扫描缺口，扫描缺口由 `coverage` 与 `unresolved` 表达，持久化到 `model.json` 留待 P5。
 
 ### 宿主接线

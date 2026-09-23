@@ -139,14 +139,22 @@ function createContext(filesByPath) {
   };
 }
 
-function emptyModel(options, filesScanned, complete) {
+// The model carries the whole coverage ledger, not just the scanned count. A
+// saved model must be able to show that files were listed and withheld, or a
+// consumer reading only the file cannot tell a full scan from a partial one.
+function emptyModel(options, coverage) {
   return {
     schemaVersion: 1,
     project: { id: options.projectId },
     scope: { roots: options.scopeRoots },
     sourceRevision: options.sourceRevision,
     generatedAt: options.generatedAt,
-    coverage: { filesScanned, complete },
+    coverage: {
+      filesListed: coverage.filesListed,
+      filesScanned: coverage.filesScanned,
+      filesSkipped: coverage.filesSkipped,
+      complete: coverage.complete,
+    },
     nodes: [],
     edges: [],
     evidence: [],
@@ -210,8 +218,13 @@ function assemble(options, inventory, optionDiagnostics, sourceDiagnostics) {
     });
   }
 
+  const model = emptyModel(options, {
+    filesListed: inventory.filesListed,
+    filesScanned: inventory.filesScanned,
+    filesSkipped: inventory.filesSkipped,
+    complete,
+  });
   const collected = context.snapshot();
-  const model = emptyModel(options, inventory.filesScanned, complete);
   model.nodes = sortById(collected.nodes);
   model.edges = sortById(collected.edges);
   model.evidence = sortById(collected.evidence);

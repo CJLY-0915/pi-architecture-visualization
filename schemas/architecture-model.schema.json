@@ -65,9 +65,19 @@
       "required": ["filesScanned", "complete"],
       "properties": {
         "filesScanned": { "type": "integer", "minimum": 0 },
+        "filesListed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Every path the source returned, including entries ignored by policy. Optional so models written before it was recorded stay valid."
+        },
+        "filesSkipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Listed files that were withheld after listing (sensitive, unsafe, unreadable or over a limit). Policy-ignored entries are not counted here, so filesListed exceeds filesScanned + filesSkipped whenever something was ignored."
+        },
         "complete": {
           "type": "boolean",
-          "description": "false means the scan was partial or stopped; unresolved items must appear as inferred/unknown facts or in unknowns."
+          "description": "false means the scan was partial or stopped; unresolved items must appear as inferred/unknown facts or in unknowns. true means the traversal ran to its end, not that every listed file was read: read filesSkipped."
         }
       }
     },

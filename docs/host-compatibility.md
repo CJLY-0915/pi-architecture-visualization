@@ -42,6 +42,18 @@
 | `pi.fs.writeText(pathFromRoot, content)` | 已核验，**暂不采用** | `app.asar` broker：`resolveFsRequest(..., "write", {create:true})`、递归建目录、`writeFileSync` 直接覆盖；无 exclusive-create、CAS、原子 rename 或事务 API |
 | `fs.write` 架构目录写入范围 | 未申请，P5 仅实现无副作用保存规划 | 宿主缺少安全发布原语；不以先检查后覆盖伪装并发安全 |
 
+## 规模与响应预算实测
+
+用 679 个文件、3.1 MB 的合成仓库（`.cache/bigrepo`，仅本地、不入库）对 `architecture_collect` 的同一条路径做三次运行。`generatedAt` 固定为常量，`summarize` 与预算常量直接从 `main.js` 切片取出后调用，因此被测代码就是发布代码本身。
+
+- **确定性**：默认 `maxFiles`（500）连跑两次，整个模型 JSON 的 SHA-256 逐字节相同（`d14806c4…`）。候选文件按路径升序处理，宿主 `fs.list` 的 readdir 顺序到不了模型里。
+- **默认 `maxFiles=500`**：679 个列出文件读出 499 个，1 条 `file_limit_reached`，`js-ts` 适配器 `limited:true`，`coverage.complete=false`；模型 505 节点 / 1342 边 / 1846 条证据。
+- **`maxFiles=5000`**：读出 677 个，`coverage.complete=true`；模型 683 节点 / 1806 边 / 2486 条证据。说明 `complete` 由实际触发的上限决定，不是写死的值。
+- **受控失败可见**：3 MB 的 `big.dat` 在读取前被 2 MiB 预读限制拒绝，记为 `file_too_large` 并计入 `filesSkipped`；两次运行的 `filesSkipped` 分别为 180 与 2。
+- **响应预算**：三次运行摘要为 101958–102468 字节，低于 240 KiB 上限，所以字节裁剪循环并未被触发——真正兜底的是 150 节点 / 300 边 / 100 条证据的逐列表上限，省略量由 `truncated` 与 `truncatedNote` 报告。该循环本身改由 `tests/response-budget.test.js` 直接覆盖，包括"单条目比整个预算还大时必须终止且不丢 `coverage`/`ok`"。
+- **实测中发现的缺陷（已修）**：模型原先只落 `filesScanned` 与 `complete`，`filesListed`/`filesSkipped` 只存在于返回值。于是"列出 679 个、只读出 677 个"在落盘后彻底消失，只读模型文件的消费者无法区分完整扫描与部分扫描。现在 `emptyModel` 写入完整账本，`schemas/architecture-model.schema.json` 把三个计数都列为可选属性（`required` 保持 `['filesScanned','complete']` 不变，旧模型仍然有效）。
+- **仍存在的语义边界（记录在案，非缺陷）**：单个文件读失败或超 `maxFileChars` 不把整次扫描判为不完整，只记诊断并计入 `filesSkipped`；`complete` 表达的是"遍历跑到了头"，扣留规模必须看 `filesSkipped`。README 与 schema 的 `complete` 描述都已写明这一点。
+
 ## 尚需在实际宿主验证
 
 逐条操作、预期结果与证据行见 [host-acceptance.md](./host-acceptance.md)：A 组是宿主生命周期（A1–A3 本轮已附日志证据），B 组是 13 个技能的人工验收（5 个本轮已过，8 个待问一次）。以下项目不能仅凭目录检查视为已实现（编号与 `host-acceptance.md` 的 A 组对应）：
@@ -67,7 +79,7 @@
 
 **已修正的宿主陷阱**：`contributes.skills` 只写路径时，宿主用 `skillIdFromPath` 取文件基名派生 id。本插件 13 个技能都叫 `SKILL.md`，于是共享同一个 id，只有首个注册成功，其余被审计为 `DUPLICATE` 静默跳过——即技能目录看似声明完整，实际只有 1/13 到达模型。现在每条声明都带显式 `id`（取所在目录名），并有 `tests/manifest-contract.test.js` 守护：显式 id 必须存在、唯一、等于目录名，并复现宿主派生规则会撞号这一事实。宿主自身的“导入扩展”脚手架也用哈希 id 规避同一问题（`app.asar` `out/main/index.js` 56613–56617）。
 
-入口通过共享的只读 `readModel` 适配器使用 `pi.fs.stat`（读取前 2 MiB 限制）和 `pi.fs.readText`；`fs.write` 未申请。健康入口对已解析但无效的 JSON（包括 `null`）保留验证诊断，其他分析仍严格拒绝无效模型。Node 内置测试覆盖模型校验、模拟宿主入口、只读采集器、查询/环路/影响预算、比较合同、P4 工具、P6 panel 白名单/交互与内存导出、P7 健康检查、无副作用快照规划的路径、参数、读取前大小、响应上限与生命周期回滚，以及 manifest 贡献合同（技能显式 id、agent 扩展声明）、注册面与 manifest 的双向一致（命令/工具/激活事件/面板白名单）、技能描述长度与路由表完整性、零依赖常驻规则的幂等性；`npm test` 显式运行 `tests/*.test.js`（不能用 `node --test tests`，本机 Node 会把目录当模块加载），本轮为 235/235。`.github/workflows/ci.yml` 在三平台跑同一命令。它们不替代上文已记录的真实 P4/P5 工具调用，也不能覆盖其余宿主生命周期场景。
+入口通过共享的只读 `readModel` 适配器使用 `pi.fs.stat`（读取前 2 MiB 限制）和 `pi.fs.readText`；`fs.write` 未申请。健康入口对已解析但无效的 JSON（包括 `null`）保留验证诊断，其他分析仍严格拒绝无效模型。Node 内置测试覆盖模型校验、模拟宿主入口、只读采集器、查询/环路/影响预算、比较合同、P4 工具、P6 panel 白名单/交互与内存导出、P7 健康检查、无副作用快照规划的路径、参数、读取前大小、响应上限与生命周期回滚，以及 manifest 贡献合同（技能显式 id、agent 扩展声明）、注册面与 manifest 的双向一致（命令/工具/激活事件/面板白名单）、技能描述长度与路由表完整性、零依赖常驻规则的幂等性、采集响应预算（逐列表上限、240 KiB 字节上限、单条目超预算时终止）与 coverage 账本落盘；`npm test` 显式运行 `tests/*.test.js`（不能用 `node --test tests`，本机 Node 会把目录当模块加载），本轮为 251/251。`.github/workflows/ci.yml` 在三平台跑同一命令。它们不替代上文已记录的真实 P4/P5 工具调用，也不能覆盖其余宿主生命周期场景。
 
 ## 下一步核验顺序
 

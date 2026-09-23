@@ -156,6 +156,42 @@ test('coverage accounts for every listed file', async () => {
   assert.deepEqual(codesOf(result.unresolved, CODES.SENSITIVE_PATH_SKIPPED), []);
 });
 
+test('the model keeps the coverage ledger so a saved file shows what was withheld', async () => {
+  // filesListed and filesSkipped are reported on the result; unless they are
+  // written into the model too, the only artifact a consumer can read loses the
+  // fact that files were listed and never read.
+  const { result } = await collect({
+    'src/a.js': 'export const a = 1;\n',
+    'src/big.js': `export const big = '${'x'.repeat(200)}';\n`,
+  }, { maxFileChars: 50 });
+
+  assert.equal(result.coverage.filesListed, 2);
+  assert.equal(result.coverage.filesScanned, 1);
+  assert.equal(result.coverage.filesSkipped, 1);
+  assert.equal(result.model.coverage.filesListed, 2);
+  assert.equal(result.model.coverage.filesScanned, 1);
+  assert.equal(result.model.coverage.filesSkipped, 1);
+  assert.equal(result.validation.valid, true);
+});
+
+test('policy-ignored files are counted in filesListed only', async () => {
+  // `dist/` and `.png` are ignored by policy rather than withheld from a scan:
+  // they never become candidates, so filesSkipped does not include them and the
+  // listed/scanned/skipped identity holds only when nothing was ignored.
+  const { result } = await collect({
+    'dist/bundle.js': 'export const built = 1;\n',
+    'assets/logo.png': 'not really a png',
+    'src/a.js': 'export const a = 1;\n',
+  });
+
+  assert.equal(result.coverage.filesListed, 3);
+  assert.equal(result.coverage.filesScanned, 1);
+  assert.equal(result.coverage.filesSkipped, 0);
+  assert.equal(result.model.coverage.filesListed, 3);
+  assert.equal(result.model.coverage.filesSkipped, 0);
+  assert.equal(result.coverage.complete, true);
+});
+
 test('the committed fixture tree contains no credential-shaped path', async () => {
   // The host packager refuses to ship credential files, so a fixture that looks
   // like one would be missing from the installed plugin while the tests still

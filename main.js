@@ -250,4 +250,9 @@ async function onPanelInvoke(channel, payload) {
   if (name === 'architecture_health') return executeHealth(readHost(), payload);
   return executeAnalysis(readHost(), name, payload);
 }
-module.exports = { onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS };
+// `summarize` and the budget constants are exported so the response bounding
+// can be tested without a host; the entry points stay the only `pi` callers.
+module.exports = {
+  onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS,
+  summarize, MAX_SUMMARY_BYTES, MAX_SUMMARY_NODES, MAX_SUMMARY_EDGES, MAX_SUMMARY_ENTRIES,
+};
