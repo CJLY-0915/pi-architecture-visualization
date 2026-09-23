@@ -27,15 +27,15 @@
 | `architecture_validate` / `architecture_collect` 工具声明 | 已通过，前两者曾在真实宿主调用 | `PluginCheck`；既有宿主调用 |
 | `architecture_query` / `architecture_impact` / `architecture_compare` 工具声明、注册与回滚 | 已在真实宿主调用；panel 调用仅经静态协议核验与本地模拟 | 真实既有工具调用；`tests/analysis-tools.test.js`、`tests/host-adapter.test.js`；`app.asar` `onPanelInvoke` 协议 |
 | `architecture_snapshot_plan` 无副作用快照规划 | 已在真实宿主调用；零写入 | 对 `fixtures/valid-minimal-model.json` 返回 SHA-256 内容地址路径；调用方确认无写入；未申请 `fs.write` |
-| `architecture_health` 模型健康工具 | 低风险声明、模拟宿主执行、可解析无效模型诊断与 panel 白名单/交互测试通过；**已在真实 Agent 调用**，panel E2E 待完成 | 真实 `plugin_local_architecture_visualization_architecture_health` 对最小模型返回 8 条受限发现；`manifest.json`；`src/host/health-tool.js`；`tests/health.test.js`、`tests/host-adapter.test.js`、`tests/panel-interactions.test.js` |
+| `architecture_health` 模型健康工具 | 低风险声明、模拟宿主执行、可解析无效模型诊断与 panel 白名单/交互测试通过；**已在真实 Agent 调用**；浮动面板健康通道已由用户确认（A6），停靠视图内未单独跑健康检查 | 真实 `plugin_local_architecture_visualization_architecture_health` 对最小模型返回 8 条受限发现；`manifest.json`；`src/host/health-tool.js`；`tests/health.test.js`、`tests/host-adapter.test.js`、`tests/panel-interactions.test.js` |
 | `pi.workspace.get()` 返回 `{path, name}` | 已在真实宿主验证 | 宿主调用；`app.asar` 中 `pluginWorkspaceInfo` |
 | `pi.fs.list(pathFromRoot)`（`{name, path, isDirectory, size, mtimeMs}[]`，单目录 1000 条上限） | 已在真实宿主验证 | 宿主 `architecture_collect` 实际调用；`app.asar` broker |
 | `pi.fs.readText(pathFromRoot)` | 已在真实宿主验证 | `architecture_validate` 与采集均实际调用 |
 | `pi.fs.stat(pathFromRoot)` → `{size, mtimeMs}`（仅文件） | 已核验并用于模型读取前大小拒绝；真实新工具调用待验证 | `app.asar` broker；`src/host/read-model.js` |
 | `pi.fs.glob(pattern)`（500 条上限，readdir 顺序） | 已核验但不采用 | `app.asar` broker（`MAX_GLOB_MATCHES`） |
 | `ui.panel` 面板权限 | 已声明 | `manifest.json` |
-| `ui.view` 视图权限与 `contributes.views` | 已声明、已过 `PluginCheck`（40 文件、无错误），**用户已在插件页授权并重载生效**；停靠视图标签页本身仍未在真实宿主被打开过（A13 前半段 ✅ / 后半段 ⬜） | `manifest.json`；宿主 `PLUGIN_PERMISSIONS` 含 `ui.view` 且不在高风险列表；注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`pluginViews` 处理器要求 `ui.view` + `pluginActiveInProject` + entry 存在于插件目录内；视图 id 必须匹配 `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/`、icon 必须取自宿主 25 个图标名（`PluginCheck` 以 dotted id 实测拦截过一次） |
-| 只读模型浏览、查询/影响/比较、内存导出与健康展示 | 受控 fixture bridge 与用户真实 panel 已验证核心成功路径，Node 交互模拟与白名单测试通过；生命周期/拒绝/超限仍待逐项验证 | `renderer/index.html`；`tests/panel-interactions.test.js`、`tests/host-adapter.test.js`；用户面板 E2E |
+| `ui.view` 视图权限与 `contributes.views` | 已声明、已过 `PluginCheck`（40 文件、无错误），**用户已在插件页授权并重载生效**；停靠视图标签页已由用户在真实宿主打开，读取模型、查询与影响分析均正常（2026-09-23，A13 核心路径 ✅；未单独检查：重复打开/关闭后的残留注册与重复面板） | `manifest.json`；宿主 `PLUGIN_PERMISSIONS` 含 `ui.view` 且不在高风险列表；注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`pluginViews` 处理器要求 `ui.view` + `pluginActiveInProject` + entry 存在于插件目录内；视图 id 必须匹配 `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/`、icon 必须取自宿主 25 个图标名（`PluginCheck` 以 dotted id 实测拦截过一次） |
+| 只读模型浏览、查询/影响/比较、内存导出与健康展示 | 受控 fixture bridge、用户真实浮动面板与右侧停靠视图（读取/查询/影响）均已确认核心成功路径，Node 交互模拟与白名单测试通过；生命周期/拒绝/超限仍待逐项验证 | `renderer/index.html`；`tests/panel-interactions.test.js`、`tests/host-adapter.test.js`；用户面板 E2E |
 | `agent.prompt.inject` 技能权限 | 已声明 | `manifest.json` |
 | `agent.tool.register` 工具权限 | 已声明 | `manifest.json` |
 | `agent.extension` 权限与 `contributes.agentExtensions` | 已在真实宿主注册并随 dev 热重载重注册 | `manifest.json`；注册表 `permissions`/`capabilities`；`logs/app/plugin.log` 中 `plugin.reload.success`、无 `plugin.agentExtensions.skipped` |
