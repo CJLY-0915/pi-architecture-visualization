@@ -113,6 +113,13 @@
     .detail-body { padding: 18px; }
     .placeholder { min-height: 236px; display: grid; place-items: center; color: var(--muted); text-align: center; font-size: 13px; line-height: 1.6; }
     .detail-name { margin: 0; font-size: 18px; line-height: 1.35; overflow-wrap: anywhere; }
+    #collect { max-width: 1540px; margin: 0 auto 20px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: #0d1621; }
+    .collect-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+    .collect-header h2 { margin: 0; font-size: 15px; }
+    .collect-header p { margin: 0; color: var(--faint); font-size: 12px; line-height: 1.5; }
+    .collect-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+    .collect-form .field { width: 100%; }
+    .collect-form .button { min-height: 36px; justify-self: start; }
     .detail-id { margin: 5px 0 18px; color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
     .detail-properties { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line); background: var(--line); }
     .detail-properties div { min-width: 0; padding: 10px; background: var(--paper-raised); }
@@ -162,7 +169,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes settle { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 920px) { .app-grid { grid-template-columns: 1fr; } .detail { position: static; } }
-    @media (max-width: 660px) { .shell { padding-inline: 12px; } .masthead { gap: 12px; } .read-only { font-size: 10px; } .workspace-bar { grid-template-columns: 1fr 1fr; } .path-input { grid-column: 1 / -1; } .metadata { grid-template-columns: 1fr; gap: 10px; } .filters { grid-template-columns: 1fr 1fr; } .filters .field:first-child { grid-column: 1 / -1; } .node-row { grid-template-columns: minmax(0, 1fr); gap: 7px; } .node-meta { justify-content: flex-start; } }
+    @media (max-width: 660px) { .shell { padding-inline: 12px; } .masthead { gap: 12px; } .read-only { font-size: 10px; } .workspace-bar { grid-template-columns: 1fr 1fr; } .path-input { grid-column: 1 / -1; } .metadata { grid-template-columns: 1fr; gap: 10px; } .filters { grid-template-columns: 1fr 1fr; } .filters .field:first-child { grid-column: 1 / -1; } .node-row { grid-template-columns: minmax(0, 1fr); gap: 7px; } .node-meta { justify-content: flex-start; } .collect-form { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
   </style>
 </head>
@@ -183,6 +190,16 @@
       <button class="button primary" id="load-button" type="submit">读取模型</button>
     </form>
     <p id="path-help" class="workspace-note">路径相对于已打开的工作区；面板不会自行生成或保存模型。</p>
+    <section id="collect" aria-labelledby="collect-heading">
+      <header class="collect-header"><div><h2 id="collect-heading">采集探测</h2><p>扫描当前工作区，只读、不写入。用来看采集器能自动看到什么、盲区报在哪里；完整模型只在内存，不落盘，也不会载入下方的浏览器。</p></div><span class="read-only">不写入</span></header>
+      <form id="collect-form" class="collect-form" novalidate>
+        <input id="collect-roots" class="field" placeholder="范围根目录（留空 = 整个工作区）" aria-label="采集范围根目录" />
+        <input id="collect-max" class="field" type="number" min="1" placeholder="最多文件数（默认 500）" aria-label="采集最多文件数" />
+        <button class="button secondary" id="collect-submit" type="submit">运行采集探测</button>
+      </form>
+      <div id="collect-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未运行采集。</div>
+      <div id="collect-results" class="analysis-results" aria-live="polite"></div>
+    </section>
 
     <section id="status" class="status" data-kind="idle" aria-live="polite" aria-atomic="true">
       <span>等待选择模型。读取前会检查工作区、文件与基础结构。</span>
@@ -257,8 +274,46 @@
         nodes: $("node-count"), edges: $("edge-count"), evidence: $("evidence-count"), resultCount: $("result-count"),
         search: $("search"), type: $("type-filter"), statusFilter: $("state-filter"), confidence: $("confidence-filter"), list: $("node-list"),
         detail: $("detail-body"), detailSubtitle: $("detail-subtitle"), unknowns: $("unknowns"), unknownCount: $("unknown-count"), unknownList: $("unknown-list"),
-      queryForm: $("query-form"), queryMode: $("query-mode"), queryTargets: $("query-targets"), queryTo: $("query-to"), impactForm: $("impact-form"), impactTargets: $("impact-targets"), impactDirection: $("impact-direction"), compareForm: $("compare-form"), compareBefore: $("compare-before"), compareAfter: $("compare-after"), exportForm: $("export-form"), exportFormat: $("export-format"), exportFocus: $("export-focus"), exportLevel: $("export-level"), healthForm: $("health-form"), analysisStatus: $("analysis-status"), analysisResults: $("analysis-results")
+      queryForm: $("query-form"), queryMode: $("query-mode"), queryTargets: $("query-targets"), queryTo: $("query-to"), impactForm: $("impact-form"), impactTargets: $("impact-targets"), impactDirection: $("impact-direction"), compareForm: $("compare-form"), compareBefore: $("compare-before"), compareAfter: $("compare-after"), exportForm: $("export-form"), exportFormat: $("export-format"), exportFocus: $("export-focus"), exportLevel: $("export-level"), healthForm: $("health-form"), analysisStatus: $("analysis-status"), analysisResults: $("analysis-results"),
+        collectForm: $("collect-form"), collectRoots: $("collect-roots"), collectMax: $("collect-max"), collectSubmit: $("collect-submit"), collectStatus: $("collect-status"), collectResults: $("collect-results")
       };
+      function setCollectStatus(kind, message) { ui.collectStatus.dataset.kind = kind; ui.collectStatus.textContent = message; }
+      function renderCollect(result) {
+        ui.collectResults.replaceChildren();
+        if (!result || result.ok !== true) {
+          const error = result && result.error ? `${result.error.code || "collect_failed"}：${result.error.message || "采集没有产生完整结果。"}` : "采集调用失败，未产生完整结果。";
+          ui.collectResults.append(resultCard("未完成的采集", [error], "error"));
+          setCollectStatus("error", error);
+          return;
+        }
+        const coverage = result.coverage || {};
+        const adapters = Array.isArray(coverage.adapters) ? coverage.adapters.map((item) => `${item.id}${item.matched ? `（命中 ${item.matched}）` : ""}${item.limited ? "（受限）" : ""}`) : [];
+        ui.collectResults.append(resultCard("采集计数", [result.counts || {}]));
+        ui.collectResults.append(resultCard("覆盖账本", [{ complete: coverage.complete, filesListed: coverage.filesListed, filesScanned: coverage.filesScanned, filesSkipped: coverage.filesSkipped, adapters }], coverage.complete ? "" : "warning"));
+        const blind = array(result.unresolved).concat(array(result.diagnostics)).map((item) => `${item.code} · ${item.path || "（无路径）"}${item.message ? ` — ${item.message}` : ""}`);
+        ui.collectResults.append(resultCard("采集器盲区与诊断", blind.length ? blind : ["本次采集未报告未解析项或诊断。"], blind.length ? "warning" : ""));
+        if (result.truncated) ui.collectResults.append(resultCard("结果上限", [result.truncated, result.truncatedNote || ""], "warning"));
+        ui.collectResults.append(resultCard("边界", ["仅内存摘要：完整模型没有写入磁盘，也没有载入本界面。要浏览、查询与导出，先落盘 architecture/model.json 再读取。", "证据内容与源文件真实性未重新验证。"], "warning"));
+        setCollectStatus("ready", "采集完成（只读）。上方为摘要与盲区；完整模型未落盘。");
+      }
+      async function runCollect(event) {
+        event.preventDefault();
+        const request = {};
+        const roots = splitValues(ui.collectRoots.value);
+        if (roots.length) request.scopeRoots = roots;
+        const max = ui.collectMax.value.trim();
+        if (max) {
+          const parsed = Number(max);
+          if (!Number.isSafeInteger(parsed) || parsed <= 0) { ui.collectResults.replaceChildren(); setCollectStatus("error", "最多文件数必须是正整数；不会猜测。"); return; }
+          request.maxFiles = parsed;
+        }
+        ui.collectSubmit.disabled = true;
+        setCollectStatus("loading", "正在扫描工作区；不会写入…");
+        try { renderCollect(await bridgeInvoke("architecture.collect", request)); }
+        catch (error) { renderCollect({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } }); }
+        finally { ui.collectSubmit.disabled = false; }
+      }
+      ui.collectForm.addEventListener("submit", runCollect);
 
       function setStatus(kind, message) {
         ui.status.dataset.kind = kind;
@@ -400,7 +455,7 @@
       function splitValues(value) { return String(value || "").split(",").map((item) => item.trim()).filter(Boolean); }
       function describe(value) { if (typeof value === "string") return value; try { return JSON.stringify(value); } catch { return "不可显示的结果项"; } }
       function resultCard(title, entries, kind = "") { const card = document.createElement("section"); card.className = `result-card ${kind}`; const heading = document.createElement("h3"); heading.textContent = title; card.append(heading); if (!entries.length) { const note = document.createElement("p"); note.textContent = "无记录。"; card.append(note); return card; } const list = document.createElement("ul"); entries.slice(0, 24).forEach((entry) => { const item = document.createElement("li"); item.textContent = describe(entry); list.append(item); }); if (entries.length > 24) { const item = document.createElement("li"); item.textContent = `仅显示前 24 / ${entries.length} 项；结果未被视为完整。`; list.append(item); } card.append(list); return card; }
-      function previewCard(result) { const card = document.createElement("section"); card.className = `result-card ${result.supported ? "" : "warning"}`; const heading = document.createElement("h3"); heading.textContent = `内存预览 · ${result.format}`; const meta = document.createElement("p"); meta.textContent = result.supported ? `${result.mimeType}；未保存或下载。` : "该格式在当前安全边界中不生成内容。"; card.append(heading, meta); if (result.content) { const pre = document.createElement("pre"); pre.textContent = result.content; card.append(pre); if (result.contentTruncated === true) { const note = document.createElement("p"); note.textContent = "内容已受 12,000 字符内存预览预算截断；未保存其余内容，也不能视为完整导出。"; card.append(note); } } return card; }
+      function previewCard(result) { const card = document.createElement("section"); card.className = `result-card ${result.supported ? "" : "warning"}`; const heading = document.createElement("h3"); heading.textContent = `内存预览 · ${result.format}`; card.append(heading); const meta = document.createElement("p"); meta.textContent = result.supported ? `${result.mimeType}；未保存或下载。` : "该格式在当前安全边界中不生成内容。"; card.append(meta); if (result.content) { const pre = document.createElement("pre"); pre.textContent = result.content; card.append(pre); if (result.contentTruncated === true) { const note = document.createElement("p"); note.textContent = "内容已受 24,000 字符内存预览预算截断；未保存其余内容，也不能视为完整导出。"; card.append(note); } } return card; }
       function renderAnalysis(kind, result) {
         ui.analysisResults.replaceChildren();
         const healthDiagnostics = kind === "health" && result && result.validation && Array.isArray(result.findings);

@@ -23,6 +23,7 @@ const PANEL_ANALYSIS_CHANNELS = Object.freeze({
   'architecture.compare': 'architecture_compare',
   'architecture.exportPreview': 'architecture_export_preview',
   'architecture.health': 'architecture_health',
+  'architecture.collect': 'architecture_collect',
 });
 
 // Keep the permission-gated call visible at the entry point while the shared
@@ -249,6 +250,18 @@ async function onPanelInvoke(channel, payload) {
     const loaded = await readModel(readHost(), request.path);
     if (!loaded.ok) return loaded;
     return boundResponse(exportPreview(loaded.model, request.format, { focus: request.focus, level: request.level }));
+  }
+  if (name === 'architecture_collect') {
+    // Collect has no model path: it scans the workspace through the same host
+    // source the command and the agent tool use and returns the same bounded
+    // summary, so the panel can show what the collector sees before any model
+    // exists. Only its two options are accepted at this boundary.
+    const request = payload === undefined ? {} : payload;
+    if (!request || typeof request !== 'object' || Array.isArray(request)
+      || Object.keys(request).some((key) => key !== 'scopeRoots' && key !== 'maxFiles')) {
+      return { ok: false, error: { code: 'invalid_option', message: 'Collect accepts only optional scopeRoots and maxFiles.' } };
+    }
+    return collectCurrentState(request);
   }
   if (name === 'architecture_health') return executeHealth(readHost(), payload);
   return executeAnalysis(readHost(), name, payload);

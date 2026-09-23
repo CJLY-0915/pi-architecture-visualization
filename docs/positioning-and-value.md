@@ -47,7 +47,7 @@
 | 入口 | 怎么用 | 适合 |
 | --- | --- | --- |
 | **技能（对话）** | 直接描述问题，路由技能 `explore` 会选场景技能 | 绝大多数情况；不需要记住工具名 |
-| **右侧工作面板 / 浮动面板** | 命令面板搜 `Architecture: Open Workbench`，或右侧工作面板点"架构可视化"标签页 | 边读边查；同一份 `renderer/index.html`，两种形态共用同一 preload |
+| **右侧工作面板 / 浮动面板** | 命令面板搜 `Architecture: Open Workbench`，或右侧工作面板点"架构可视化"标签页 | 边读边查；同一份 `renderer/index.html`，两种形态共用同一 preload。没有模型时可先跑采集探测，看采集器能看见什么 |
 | **Agent 工具** | `architecture_validate` / `architecture_collect` / `architecture_query` / `architecture_impact` / `architecture_compare` / `architecture_snapshot_plan` / `architecture_health` | 脚本化、CI 里跑 |
 
 面板只经 `window.pluginBridge.invoke` 访问 5 个固定通道，不碰任意 Electron IPC。
@@ -68,7 +68,7 @@
 ```
 **得到**：按 `parentId` 链切出的三层——L1 系统上下文（焦点系统 + 使用者 + 外部依赖）、L2 容器（6 个可部署单元）、L3 组件（每个容器内的职责，本仓库共 7 个）。每个元素都带 `type/status/confidence · <模型 id>`，可逐一回溯。
 **得不到**：渲染好的图。把 `.dsl` 送到外部 Structurizr 兼容工具。
-**该换格式的时候**：想知道"什么 import 什么"→ `graphviz` 的模块关系图；想跟一条请求→ `flow-visualizer`。
+**该换格式的时候**：想知道"什么 import 什么"→ `graphviz` 的模块关系图；想跟一条请求→ `flow-visualizer`。还没有模型时，面板顶部的"采集探测"先给出采集器视角的有界摘要与盲区（只读、不落盘）。
 
 ### 场景三："这个模型还可信吗？"
 
@@ -137,7 +137,7 @@
 
 - **之前**：README 写 254、PLAN 写 251、host 记录写 223；模型 `sourceRevision` 落后 HEAD；"首个三平台 CI 结果未取得"在 CI 已全绿后还挂着。
 - **之后**：用例数、文件数、版本号、CI 状态在各处一致，且由测试锁定（manifest 与 package 版本一致、打包范围恰好 40 文件）。
-- **可验证**：`node --test tests/*.test.js` 268/268；`git grep` 搜不到过期数字。
+- **可验证**：`node --test tests/*.test.js` 270/270；`git grep` 搜不到过期数字。
 
 ### 6. 安全边界是声明出来的，不是猜的
 
@@ -222,7 +222,7 @@
 | 缺口 | 性质 | 状态 |
 | --- | --- | --- |
 | 停靠视图生命周期细节（重复打开/关闭后的残留注册与重复面板） | 宿主无 `openView` API，只能由用户点开 | 授权、重载、打开、读取/查询/影响均已由用户确认（2026-09-23） |
-| 1.0.0 `.piplug` 安装回归 | A10 是针对 0.1.0 做的 | 新包需重做安装→启用→升级→禁用→卸载 |
+| 1.2.0 `.piplug` 安装回归 | A10 是针对 0.1.0 做的；1.0.0/1.1.0 的包也未重做 | 新包需重做安装→启用→升级→禁用→卸载 |
 | A4 命令注销 | 只有单测覆盖 | 未在真实宿主确认卸载后命令消失 |
 | 采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断 | 已记录，未扩适配器 | 写进 `legacy-inventory-sparse.md`；不凭空实现解析器 |
 | Java/Maven/Gradle 依赖采集 | 只保证不静默忽略 | 明确报 `unsupported_input`，不产出节点或边 |

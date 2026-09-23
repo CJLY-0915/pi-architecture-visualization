@@ -114,3 +114,37 @@
   条件写入，因此不把先读后写宣传为安全发布。
 - **命令注销（A4）只有单测覆盖**，未在真实宿主确认卸载后命令从命令面板消失。
 - 三个采集适配器均为面向行的启发式，不是完整解析器；各自已知限制写在文件头注释中。
+## [1.2.0] - 2026-09-23
+
+采集探测进面板：没有模型时也能先问"采集器能看见什么"。仍是只读、仍不落盘。
+
+### 新增
+
+- **面板第六个通道 `architecture.collect`**：`main.js` 的 `PANEL_ANALYSIS_CHANNELS` 与
+  `onPanelInvoke` 分派该通道，只接受 `scopeRoots` 与 `maxFiles`，其余 key 返回
+  `invalid_option`；实现委托 `collectCurrentState`，与命令、Agent 工具走同一份采集器，
+  不引入第二套逻辑。
+- **采集表单**放在 `renderer/index.html` 的 `<div id="reader" hidden>` 之外：整个分析区
+  要载入模型后才出现，而采集是引导步骤，必须在没有模型时可达。结果只渲染摘要卡片
+  （计数、覆盖账本、盲区、上限、边界），不把有界摘要伪装成可浏览的模型。
+- `tests/host-adapter.test.js` 与 `tests/panel-interactions.test.js` 各补采集通道用例：
+  无模型也可扫、`scopeRoots`/`maxFiles` 生效、四类坏 payload 拒绝、非法文件预算本地拒绝。
+
+### 修复
+
+- **`previewCard` 的预算文案过期**：面板写着"12,000 字符内存预览预算"，而
+  `MAX_PREVIEW_CHARS` 早已是 24000。文案改为 24000。
+
+### 已知限制（记录在案，未修复）
+
+- **`architecture.collect` 面板通道尚未在真实宿主点击过**：代码路径与 Node 侧测试已覆盖，
+  但宿主里的实机确认仍缺（`docs/host-acceptance.md` A14）。
+- **右侧停靠视图的生命周期细节未逐项演练**：重复打开/关闭后的残留注册与重复面板未单独检查。
+- **采集器读取但不建模的文件类型静默无诊断**：`.properties`/`.sh`/`.py` 已记录，未扩适配器。
+- **Java/Maven/Gradle 依赖采集未实现**：只保证不静默忽略。
+- **模型不是完整 C4 形状**：L4（Code）刻意不切；`datastore` 映射为 C4 `container`。
+- **Draw.io 导出器仍不表达证据正文与 id-only 集合**。
+- **`actor` 一律映射为 C4 `person`**：非人类执行者需在模型侧改用 `external` 类型。
+- **实际保存/发布未实现**：宿主 `pi.fs.writeText` 是直接覆盖，没有原子替换或条件写入。
+- **命令注销（A4）只有单测覆盖**，未在真实宿主确认。
+- 三个采集适配器均为面向行的启发式，不是完整解析器。

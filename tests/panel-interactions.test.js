@@ -152,7 +152,7 @@ test('panel keeps preview truncation and invalid-model health findings visible',
   elements.get('export-format').value = 'markdown';
   elements.get('export-form').dispatch('submit');
   await settle();
-  assert.ok(containsText(elements.get('analysis-results'), '内容已受 12,000 字符内存预览预算截断'));
+  assert.ok(containsText(elements.get('analysis-results'), '内容已受 24,000 字符内存预览预算截断'));
   assert.ok(containsText(elements.get('analysis-results'), '仅内存预览：没有写入。'));
 
   elements.get('health-form').dispatch('submit');
@@ -182,4 +182,43 @@ test('panel labels a valid health result with no findings accurately', async () 
   await settle();
   assert.ok(containsText(elements.get('analysis-results'), '模型合同通过；未记录健康发现'));
   assert.ok(!containsText(elements.get('analysis-results'), '仍有健康发现'));
+});
+
+test('panel probes the collector before any model is loaded and keeps blind spots visible', async () => {
+  const harness = createPanelHarness((channel) => {
+    if (channel === 'architecture.collect') return {
+      ok: true,
+      coverage: { complete: false, filesListed: 12, filesScanned: 10, filesSkipped: 2, adapters: [{ id: 'js-ts', matched: 6, limited: false }] },
+      counts: { nodes: 7, edges: 5, evidence: 9 },
+      unresolved: [{ code: 'unsupported_input', path: 'config/jobs.yml', message: 'This configuration type is not modelled by this collector.' }],
+      diagnostics: [],
+      truncated: { evidence: 3 },
+      truncatedNote: 'Only the first entries are listed; nothing was written.',
+    };
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+
+  // No model is loaded: collect lives outside the reader on purpose.
+  elements.get('collect-roots').value = 'src, config';
+  elements.get('collect-max').value = '250';
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+
+  assert.deepEqual(calls.map((call) => call.channel), ['architecture.collect']);
+  assert.equal(calls[0].payload.maxFiles, 250);
+  assert.deepEqual([...calls[0].payload.scopeRoots], ['src', 'config']);
+  assert.equal(elements.get('collect-status').dataset.kind, 'ready');
+  assert.ok(containsText(elements.get('collect-results'), 'config/jobs.yml'));
+  assert.ok(containsText(elements.get('collect-results'), 'unsupported_input'));
+  assert.ok(containsText(elements.get('collect-results'), '没有写入磁盘'));
+  assert.ok(containsText(elements.get('collect-results'), '仅显示前 24') === false);
+
+  // A non-positive file budget is refused locally instead of being guessed.
+  elements.get('collect-max').value = '0';
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+  assert.equal(calls.length, 1, 'an invalid file budget must not reach the bridge');
+  assert.equal(elements.get('collect-status').dataset.kind, 'error');
+  assert.ok(containsText(elements.get('collect-status'), '正整数'));
 });

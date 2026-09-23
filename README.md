@@ -21,7 +21,7 @@ PI-Desktop 插件：把一个代码仓库变成一份**每个结论都带证据*
 | 入口 | 怎么做 | 适合 |
 | --- | --- | --- |
 | **技能（对话）** | 直接描述问题；常驻路由把架构类问题送到 `Architecture Explore`，由它选 12 个场景技能之一 | 绝大多数情况，不需要记工具名 |
-| **工作面板** | 右侧工作面板的"架构可视化"标签页，或命令面板搜 `Architecture: Open Workbench` | 边读边查：读模型、查图、跑影响、比快照、看导出预览与健康发现 |
+| **工作面板** | 右侧工作面板的"架构可视化"标签页，或命令面板搜 `Architecture: Open Workbench` | 边读边查：采集探测、读模型、查图、跑影响、比快照、看导出预览与健康发现 |
 | **Agent 工具** | `architecture_validate` / `architecture_collect` / `architecture_query` / `architecture_impact` / `architecture_compare` / `architecture_snapshot_plan` / `architecture_health` | 脚本化、CI 里跑 |
 
 可以直接问技能的典型问题：
@@ -37,7 +37,7 @@ PI-Desktop 插件：把一个代码仓库变成一份**每个结论都带证据*
 | 接手一个没人懂的遗留系统 | 未知项优先的清单，开篇即未知项 |
 | 给我一份能自己改的图 | `.drawio`，非确认事实带三重标记 |
 
-面板最小三步：打开 → 路径填入模型（默认 `architecture/model.json`）点"读取模型" → 在图查询或影响分析里提交一个节点 ID。导出预览只是内存文本：不保存、不下载、不写工作区。
+面板最小三步：还没有模型时先点"运行采集探测"看采集器能看见什么（只读、不落盘）→ 有模型后路径填入模型（默认 `architecture/model.json`）点"读取模型" → 在图查询或影响分析里提交一个节点 ID。导出预览只是内存文本：不保存、不下载、不写工作区。
 12 个场景技能：`system-modeler`、`flow-visualizer`、`dependency-impact-analyzer`、`deployment-topology-analyzer`、`evolution-planner`、`risk-quality-reviewer`、`legacy-system-visualizer`、`architecture-communicator`、`architecture-health`，以及 `c4model`/`graphviz`/`drawio` 三个输出格式基础技能。它们复用同一模型与证据规则，区别只在产出形状。
 
 ## 它为工程实践带来什么
@@ -110,14 +110,14 @@ PI-Desktop 插件：把一个代码仓库变成一份**每个结论都带证据*
 
 ### 工作台与常驻规则
 
-- 面板只经 `window.pluginBridge.invoke` 访问 5 个固定通道（`architecture.query`/`architecture.impact`/`architecture.compare`/`architecture.exportPreview`/`architecture.health`）以及宿主 `workspace.get`、`fs.stat`、`fs.readText`，不碰任意 Electron IPC，也不调用 Agent 工具注册表。宿主**没有**打开停靠视图的 API，命令因此保留为浮动面板入口。
+- 面板只经 `window.pluginBridge.invoke` 访问 6 个固定通道（`architecture.query`/`architecture.impact`/`architecture.compare`/`architecture.exportPreview`/`architecture.health`/`architecture.collect`）以及宿主 `workspace.get`、`fs.stat`、`fs.readText`，不碰任意 Electron IPC，也不调用 Agent 工具注册表。`architecture.collect` 是引导探测：不依赖已载入的模型，只接受 `scopeRoots` 与 `maxFiles`，返回与命令/工具同一份有界摘要。宿主**没有**打开停靠视图的 API，命令因此保留为浮动面板入口。
 - 内存预览 10 种格式：Structurizr DSL、C4 层级 DSL、DOT、Mermaid、Draw.io XML、Markdown、JSON、SVG、PNG（明确报告受限）、离线 HTML。`c4` 按 `parentId` 链切层；Draw.io 对非 `confirmed`/`high` 的事实带标记；每个预览都带模型版本、范围、revision、生成时间、覆盖状态、图例和限制。
 - `extensions/workflow-rule.mjs` 刻意零依赖（无 import / fs / 网络 / 时钟 / 随机），由 `tests/agent-extension.test.js` 静态守卫。宿主用 `(acc,next)=>({...acc ?? {}, ...next})` 合并 handler 返回值，且返回的 `systemPrompt` 会**替换**整体提示，因此模块必须把 base 原样带上再拼接，追加以 `## Architecture Visualization` marker 判重。入口必须是 `.mjs`（`package.json` 为 `"type": "commonjs"`）。
 - manifest 必须给每条技能显式 `id`：宿主用文件基名派生技能 id，13 个 `SKILL.md` 会撞成同一个，只注册第一个。`agent.extension` 已由用户在插件页显式授予；dev 插件的权限天花板冻结在授权时刻。
 
 ### 质量门禁
 
-`node --test tests/*.test.js` 当前 268/268；三平台 CI 全绿；干净镜像 `PluginCheck` 无错误通过（运行时集合 40 文件，由 `tests/package-scope.test.js` 断言）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 13 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
+`node --test tests/*.test.js` 当前 270/270；三平台 CI 全绿；干净镜像 `PluginCheck` 无错误通过（运行时集合 40 文件，由 `tests/package-scope.test.js` 断言）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 14 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 
 ## 设计原则
 

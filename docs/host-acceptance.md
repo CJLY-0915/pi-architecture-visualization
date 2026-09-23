@@ -22,6 +22,7 @@
 | A11 | fs 符号链接逃逸 | 目标项目放置指向区外的符号链接 | 宿主拒绝或记录为覆盖缺口，不静默读取 | `architecture_collect` 的 `unresolved` | ✅ 用户本轮确认 |
 | A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
 | A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ✅ 用户本轮确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）；标签页已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）。未单独检查：重复打开/关闭后的残留注册与重复面板（模型记 `unknown:docked-view-lifecycle-residue`） |
+| A14 | 面板采集探测通道 | 不载入模型，直接在浮动面板或停靠视图点"运行采集探测" | 返回与命令/工具同一份有界摘要（计数、覆盖账本、盲区、上限）；非正整数文件预算本地拒绝 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -65,4 +66,12 @@
 - **legacy 场景错配**：`fixtures/legacy-sparse-project/`（11 文件，无 README/docs/tests/CI/LICENSE/CODEOWNERS）+ `fixtures/legacy-sparse-model.json`（8 节点 / 4 边 / 5 unknowns）+ `tests/legacy-sparse-evidence.test.js`（5 条）+ `architecture/legacy-inventory-sparse.md`。
 - 新增 `docs/positioning-and-value.md`：定位与边界、六个使用场景（各写清"得到/得不到"）、六条可观察的工程提升、以及上述三项的改进方案与验证标准。
 - 版本 1.0.0 → 1.1.0；`node --test tests/*.test.js` 268/268。
-- **仍未闭合**：A13 生命周期细节（重复打开/关闭停靠视图后的残留注册与重复面板）、1.1.0 `.piplug` 安装回归、A4 命令注销、采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断、Java/Maven/Gradle 依赖采集、实际保存/发布、L4 Code 层。逐条性质与状态见 `docs/positioning-and-value.md` 第五节。
+- **仍未闭合**：A13 生命周期细节（重复打开/关闭停靠视图后的残留注册与重复面板）、A14 面板采集探测通道、1.2.0 `.piplug` 安装回归（1.0.0/1.1.0 的包也未重做）、A4 命令注销、采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断、Java/Maven/Gradle 依赖采集、实际保存/发布、L4 Code 层。逐条性质与状态见 `docs/positioning-and-value.md` 第五节。
+
+## E. 本轮（2026-09-23）新增：面板采集探测（1.2.0）
+
+- 面板新增第六个通道 `architecture.collect`：`main.js` 的 `PANEL_ANALYSIS_CHANNELS` 与 `onPanelInvoke` 分派该通道，只接受 `scopeRoots` 与 `maxFiles`，其余 key 返回 `invalid_option`，实现委托 `collectCurrentState`——与命令/Agent 工具走同一份采集器，不引入第二套逻辑。
+- 采集表单位置在 `<div id="reader" hidden>` **之外**（`path-help` 之后）：整个分析区要载入模型后才出现，而采集是引导步骤，必须在没有模型时可达。结果只渲染摘要卡片（计数、覆盖账本、盲区、上限、边界），不把有界摘要伪装成可浏览的模型。
+- 回归覆盖：`tests/host-adapter.test.js`（无模型也可扫、`scopeRoots`/`maxFiles`、四类坏 payload 拒绝）与 `tests/panel-interactions.test.js`（payload 解析、盲区渲染、非法预算本地拒绝），共 +2 条。
+- 顺带修掉 `previewCard` 里过时的"12,000 字符内存预览预算"——`MAX_PREVIEW_CHARS` 早已是 24000。
+- 版本 1.1.0 → 1.2.0；`node --test tests/*.test.js` 270/270。

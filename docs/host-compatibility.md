@@ -13,7 +13,7 @@
 - 分发镜像：**运行时集合，共 40 文件** —— `main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`。该集合由 `tests/package-scope.test.js` 断言（manifest 声明路径齐全、全部 `require()` 目标可解析、开发资产被排除），并已用干净镜像实测：只复制这 7 个根后 `PluginCheck` 报告 `40 file(s) would be packaged`、无错误。`tests/`、`fixtures/`、`docs/`、`.github/`、`README.md`、`PLAN.md` 只进仓库不进包；`architecture/`（本仓库自身的架构模型）、`Temp/`、`dist/`、`.pi/` 只留在本地。宿主打包器**不读取 `.gitignore`**，因此打包范围靠上述门禁与干净镜像保证，不靠 git 忽略规则。
 - 版本控制：开发源是 Git 仓库（`main` 分支）；`architecture/`、`Temp/`、`dist/`、`.pi/`、`node_modules/`、系统与编辑器垃圾均在 `.gitignore` 中，不被跟踪。
 - 版本控制 remote：**已建立**——`https://github.com/CJLY-0915/pi-architecture-visualization.git`（`origin`，`main` 分支）。`.github/workflows/ci.yml` 的三平台 `node --test tests/*.test.js` **已全绿**：commit `bb03244` 的 run 中 `node --test (macos-latest)` 9s、`(ubuntu-latest)` 5s、`(windows-latest)` 18s 全部 Success，总时长 21s。证据是用户在 GitHub Actions 页面提供的运行截图（本机读不到：GitHub API 未认证返回 403），因此这一条的证据性质是用户证言而非本地日志摘录。
-- 宿主生命周期与场景技能验收状态以 [host-acceptance.md](./host-acceptance.md) 为唯一实时来源：A 组 13 项中 A1–A3 附日志证据、A4 仅单测覆盖、A7–A13 为用户确认——**A13 已由用户确认**：`ui.view` 授权已生效（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`，无 `PERMISSION_DENIED`），且右侧停靠视图已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）；只剩重复打开/关闭后的残留注册与重复面板未单独检查（模型记 `unknown:docked-view-lifecycle-residue`）。宿主没有供插件自行打开视图的 API，因此打开视图这一步只能由用户在工作面板点开。B 组 13 个技能已全部实际执行一次。三平台 CI 已全绿（见上一条）。
+- 宿主生命周期与场景技能验收状态以 [host-acceptance.md](./host-acceptance.md) 为唯一实时来源：A 组 14 项中 A1–A3 附日志证据、A4 仅单测覆盖、A7–A13 为用户确认——**A13 已由用户确认**：`ui.view` 授权已生效（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`，无 `PERMISSION_DENIED`），且右侧停靠视图已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）；只剩重复打开/关闭后的残留注册与重复面板未单独检查（模型记 `unknown:docked-view-lifecycle-residue`）。宿主没有供插件自行打开视图的 API，因此打开视图这一步只能由用户在工作面板点开。B 组 13 个技能已全部实际执行一次。三平台 CI 已全绿（见上一条）。
 
 ## 已核验合同
 
@@ -35,7 +35,7 @@
 | `pi.fs.glob(pattern)`（500 条上限，readdir 顺序） | 已核验但不采用 | `app.asar` broker（`MAX_GLOB_MATCHES`） |
 | `ui.panel` 面板权限 | 已声明 | `manifest.json` |
 | `ui.view` 视图权限与 `contributes.views` | 已声明、已过 `PluginCheck`（40 文件、无错误），**用户已在插件页授权并重载生效**；停靠视图标签页已由用户在真实宿主打开，读取模型、查询与影响分析均正常（2026-09-23，A13 核心路径 ✅；未单独检查：重复打开/关闭后的残留注册与重复面板） | `manifest.json`；宿主 `PLUGIN_PERMISSIONS` 含 `ui.view` 且不在高风险列表；注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`pluginViews` 处理器要求 `ui.view` + `pluginActiveInProject` + entry 存在于插件目录内；视图 id 必须匹配 `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/`、icon 必须取自宿主 25 个图标名（`PluginCheck` 以 dotted id 实测拦截过一次） |
-| 只读模型浏览、查询/影响/比较、内存导出与健康展示 | 受控 fixture bridge、用户真实浮动面板与右侧停靠视图（读取/查询/影响）均已确认核心成功路径，Node 交互模拟与白名单测试通过；生命周期/拒绝/超限仍待逐项验证 | `renderer/index.html`；`tests/panel-interactions.test.js`、`tests/host-adapter.test.js`；用户面板 E2E |
+| 只读模型浏览、采集探测、查询/影响/比较、内存导出与健康展示 | 受控 fixture bridge、用户真实浮动面板与右侧停靠视图（读取/查询/影响）均已确认核心成功路径，Node 交互模拟与白名单测试通过；生命周期/拒绝/超限仍待逐项验证；`architecture.collect` 面板通道为本轮新增，待宿主确认 | `renderer/index.html`；`tests/panel-interactions.test.js`、`tests/host-adapter.test.js`；用户面板 E2E |
 | `agent.prompt.inject` 技能权限 | 已声明 | `manifest.json` |
 | `agent.tool.register` 工具权限 | 已声明 | `manifest.json` |
 | `agent.extension` 权限与 `contributes.agentExtensions` | 已在真实宿主注册并随 dev 热重载重注册 | `manifest.json`；注册表 `permissions`/`capabilities`；`logs/app/plugin.log` 中 `plugin.reload.success`、无 `plugin.agentExtensions.skipped` |
@@ -63,7 +63,7 @@
 1. ~~插件能在当前 PI-Desktop 版本中加载、启用、禁用和卸载。~~ → **已确认**（A9，用户本轮确认；证据性质见 `host-acceptance.md` 表下注）。
 2. `onLoad` / `onUnload` 的命令注册和注销行为，以及异常时的清理行为。→ **仍开放**，仅有 `tests/registration-contract.test.js` 单测覆盖（A4 🧪）；卸载后命令是否真的从面板消失未实机确认。
 3. `pi.fs.list` / `readText` 已在真实宿主调用通过；**仍开放**的是权限拒绝、会话切换与越界读写的逐项验证。
-4. ~~`pi.ui.openPanel` 的重复打开、关闭和宿主销毁~~ → **已确认**（A7）。**仍开放**：面板 `window.pluginBridge.invoke(...)` 的权限拒绝与超限状态（用户已确认五个固定 `architecture.*` 通道的核心成功路径）。
+4. ~~`pi.ui.openPanel` 的重复打开、关闭和宿主销毁~~ → **已确认**（A7）。**仍开放**：面板 `window.pluginBridge.invoke(...)` 的权限拒绝与超限状态（用户已确认五个固定 `architecture.*` 分析通道的核心成功路径；第六个通道 `architecture.collect` 为本轮新增，待宿主确认）。
 5. `window.pluginBridge.invoke('ui.showToast', ...)` 的实际桥接行为。→ **仍开放**。
 6. ~~Agent 工具在 Agent 模式中的超时与 Plan 模式拒绝行为~~ → **已确认**（A12）。**仍开放**：工具被禁用时的行为；既有 query/impact/compare 的最终 Manifest schema 在完整插件重载后复核。
 7. ~~技能目录与正文按需加载~~ → **已确认**：13 个技能注册（`count=13`），且本轮 13 个场景技能逐一实际执行并落盘首产物（见 `host-acceptance.md` B 组）。

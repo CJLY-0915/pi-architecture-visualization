@@ -619,6 +619,30 @@ test('panel bridge exposes only fixed read-only analysis and in-memory export ch
   }
 });
 
+test('the collect channel scans the workspace from the panel without a loaded model', async () => {
+  const tree = simpleTree();
+  await withHost(tree, {}, async () => {
+    // No model is loaded anywhere: collect is the bootstrap probe, so it must
+    // not depend on a previously read model.
+    const result = await plugin.onPanelInvoke('architecture.collect', {});
+    assert.equal(result.ok, true);
+    assert.ok(result.counts.nodes > 0, 'collect should return the scanned nodes');
+    assert.equal(result.coverage.complete, true);
+    assert.ok(result.nodes.some((node) => node.id === 'file:src/main.js'));
+
+    const scoped = await plugin.onPanelInvoke('architecture.collect', { scopeRoots: ['src'], maxFiles: 10 });
+    assert.equal(scoped.ok, true);
+    assert.equal(scoped.coverage.filesScanned, 2);
+    // Keys the collect boundary does not accept are refused before the scan;
+    // a well-formed but empty scope root reaches the collector's own check.
+    for (const [bad, code] of [[{ path: 'architecture/model.json' }, 'invalid_option'], [{ format: 'json' }, 'invalid_option'], [{ maxFiles: 0 }, 'INVALID_OPTION'], [{ scopeRoots: [] }, 'INVALID_SCOPE']]) {
+      const rejected = await plugin.onPanelInvoke('architecture.collect', bad);
+      assert.equal(rejected.ok, false, `${JSON.stringify(bad)} must be refused`);
+      assert.equal(rejected.error.code, code);
+    }
+  });
+});
+
 test('health tool and panel channel read one validated model without source verification', async () => {
   const tree = simpleTree();
   tree.files['architecture/model.json'] = JSON.stringify(model);
