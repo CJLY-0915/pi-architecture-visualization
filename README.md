@@ -2,6 +2,8 @@
 
 PI-Desktop 插件，用于理解、建模、评审和演进复杂软件架构。
 
+仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main` 分支；推送到 `main` 或开 PR 会触发 `.github/workflows/ci.yml`，在 ubuntu / windows / macOS 三个平台跑 `node --test tests/*.test.js`）。
+
 当前已实现 P2 模型合同与校验器、P3 确定性只读采集、P4 查询/影响/比较、P5 无副作用快照规划、P6 只读工作台与内存导出预览，以及 P7 模型健康检查。实际安全发布仍受宿主原子发布能力缺失阻塞，详见 [PLAN.md](./PLAN.md)。
 
 ## 开发

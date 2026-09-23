@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "PI-Desktop plugin that builds evidence-backed architecture models from a repository and derives diagrams, reports and health checks from them.",
+  "repository": {
+    "type": "git",
+    "type": "git",
+    "url": "https://github.com/CJLY-0915/pi-architecture-visualization.git"
+  },
   "type": "commonjs",
   "main": "main.js",
   "scripts": {
