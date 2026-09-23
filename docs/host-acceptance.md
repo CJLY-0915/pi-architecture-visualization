@@ -15,12 +15,14 @@
 | A4 | 命令注册与注销 | 命令面板执行三条命令；卸载插件 | 三条命令可执行；卸载后不再出现 | 命令面板 + `plugin.log` | 🧪 `tests/registration-contract.test.js` |
 | A5 | Agent 工具注册与调用 | 在 Agent 模式调用 7 个工具 | 公开名带 `plugin_local_architecture_visualization_` 前缀，均返回结构化结果 | `logs/app/tool.log` 中 `plugin.tool.executed ok=true` | ✅ collect/validate/impact/health 本轮真实调用；query/compare/snapshot_plan 为历史调用 |
 | A6 | 面板核心只读路径 | 打开工作台，载入模型，跑查询/影响/比较/预览/健康 | 核心路径正常，PNG 明确报受限 | 用户面板确认（`PLAN.md:391`，安装态 r6） | ✅ 历史 |
-| A7 | 面板生命周期 | 重复打开/关闭面板；切项目；宿主销毁面板 | 无残留注册、无泄漏计时器、无重复面板 | 面板行为 + `plugin.log` | ⬜ |
-| A8 | 权限撤销行为 | 在插件页撤销 `agent.prompt.inject` 后提问 | 技能目录不再到达模型；恢复后重新到达 | 系统提示技能目录 + `plugin.skills.skipped PERMISSION_DENIED` | ⬜ |
-| A9 | 禁用/启用/卸载 | 禁用→启用→卸载插件 | 命令、工具、面板、订阅全部清理；无孤儿目录 | `plugin.log` + `plugins/installed` 目录 | ⬜ |
-| A10 | `.piplug` 安装回归 | 干净环境安装→启用→升级→禁用→卸载 | 全通过；权限扩大被要求重新审核 | 安装流程截图/日志 | ⬜ |
-| A11 | fs 符号链接逃逸 | 目标项目放置指向区外的符号链接 | 宿主拒绝或记录为覆盖缺口，不静默读取 | `architecture_collect` 的 `unresolved` | ⬜ |
-| A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ⬜ |
+| A7 | 面板生命周期 | 重复打开/关闭面板；切项目；宿主销毁面板 | 无残留注册、无泄漏计时器、无重复面板 | 面板行为 + `plugin.log` | ✅ 用户本轮确认 |
+| A8 | 权限撤销行为 | 在插件页撤销 `agent.prompt.inject` 后提问 | 技能目录不再到达模型；恢复后重新到达 | 系统提示技能目录 + `plugin.skills.skipped PERMISSION_DENIED` | ✅ 用户本轮确认 |
+| A9 | 禁用/启用/卸载 | 禁用→启用→卸载插件 | 命令、工具、面板、订阅全部清理；无孤儿目录 | `plugin.log` + `plugins/installed` 目录 | ✅ 用户本轮确认 |
+| A10 | `.piplug` 安装回归 | 干净环境安装→启用→升级→禁用→卸载 | 全通过；权限扩大被要求重新审核 | 安装流程截图/日志 | ✅ 用户本轮确认 |
+| A11 | fs 符号链接逃逸 | 目标项目放置指向区外的符号链接 | 宿主拒绝或记录为覆盖缺口，不静默读取 | `architecture_collect` 的 `unresolved` | ✅ 用户本轮确认 |
+| A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
+
+> A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
 
