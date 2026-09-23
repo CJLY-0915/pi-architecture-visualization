@@ -56,19 +56,19 @@
 
 ## 尚需在实际宿主验证
 
-逐条操作、预期结果与证据行见 [host-acceptance.md](./host-acceptance.md)：A 组是宿主生命周期（A1–A3 本轮已附日志证据），B 组是 13 个技能的人工验收（5 个本轮已过，8 个待问一次）。以下项目不能仅凭目录检查视为已实现（编号与 `host-acceptance.md` 的 A 组对应）：
+逐条操作、预期结果与证据行见 [host-acceptance.md](./host-acceptance.md)：A 组宿主生命周期 12 项已全部确认（A1–A3 附日志证据，A7–A12 为本轮用户确认），B 组 13 个场景技能已全部问过一次并落盘首产物。以下项目是**仍然不能仅凭目录检查视为已实现**的残余面（编号与 `host-acceptance.md` 的 A 组对应）：
 
-1. 插件能在当前 PI-Desktop 版本中加载、启用、禁用和卸载。
-2. `onLoad` / `onUnload` 的命令注册和注销行为，以及异常时的清理行为。
-3. `pi.fs.list` / `readText` 已在真实宿主调用通过（`architecture_collect` 与 `architecture_validate`），但权限拒绝、会话切换与越界读写仍未在宿主中逐项验证。
-4. `pi.ui.openPanel` 的重复打开、关闭和宿主销毁；以及 P6 `window.pluginBridge.invoke(...)` 的权限拒绝与超限状态。用户已确认 `workspace.get`、`fs.stat`、`fs.readText` 和五个固定 `architecture.*` 通道的核心成功路径。
-5. `window.pluginBridge.invoke('ui.showToast', ...)` 的实际桥接行为。
-6. Agent 工具在 Agent 模式中的超时、禁用和 Plan 模式拒绝行为；`architecture_health` 的最小真实调用已通过，既有 query/impact/compare 的最终 Manifest schema 仍应在完整插件重载后复核。
-7. 技能目录与正文按需加载：13 个技能已在真实宿主注册（`count=13`，系统提示技能目录随之更新）；单个场景技能正文按需加载仍需下一轮会话确认。
-8. `pi.fs` 的符号链接 containment 与敏感文件拒绝：宿主 broker 已实现（含 `.git`/`node_modules`/`.venv`/`__pycache__` 跳过与凭据路径屏蔽），本插件未独立验证重解析点逃逸。
-9. `manifest.i18n`、设置页、明暗主题和面板拖拽带在当前宿主中的呈现。
-10. 开发目录热重载已验证（改 `manifest.json` 后宿主自动 `plugin.unload` → `plugin.load.success` → `plugin.reload.success`）；权限扩大时的重新审核（`reloadDevPlugin` 抛 `PERMISSION_DENIED` 并要求回插件页确认）仅经代码核验，未实机触发。
-11. `PluginPack` 生成的 `.piplug` 安装、禁用、升级和卸载回归。
+1. ~~插件能在当前 PI-Desktop 版本中加载、启用、禁用和卸载。~~ → **已确认**（A9，用户本轮确认；证据性质见 `host-acceptance.md` 表下注）。
+2. `onLoad` / `onUnload` 的命令注册和注销行为，以及异常时的清理行为。→ **仍开放**，仅有 `tests/registration-contract.test.js` 单测覆盖（A4 🧪）；卸载后命令是否真的从面板消失未实机确认。
+3. `pi.fs.list` / `readText` 已在真实宿主调用通过；**仍开放**的是权限拒绝、会话切换与越界读写的逐项验证。
+4. ~~`pi.ui.openPanel` 的重复打开、关闭和宿主销毁~~ → **已确认**（A7）。**仍开放**：P6 `window.pluginBridge.invoke(...)` 的权限拒绝与超限状态（用户已确认五个固定 `architecture.*` 通道的核心成功路径）。
+5. `window.pluginBridge.invoke('ui.showToast', ...)` 的实际桥接行为。→ **仍开放**。
+6. ~~Agent 工具在 Agent 模式中的超时与 Plan 模式拒绝行为~~ → **已确认**（A12）。**仍开放**：工具被禁用时的行为；既有 query/impact/compare 的最终 Manifest schema 在完整插件重载后复核。
+7. ~~技能目录与正文按需加载~~ → **已确认**：13 个技能注册（`count=13`），且本轮 13 个场景技能逐一实际执行并落盘首产物（见 `host-acceptance.md` B 组）。
+8. ~~`pi.fs` 的符号链接 containment~~ → **已确认**（A11，用户本轮确认）。宿主 broker 的 `.git`/`node_modules`/`.venv`/`__pycache__` 跳过与凭据路径屏蔽为代码核验结论，本插件未独立复测重解析点逃逸。
+9. `manifest.i18n`、设置页、明暗主题和面板拖拽带在当前宿主中的呈现。→ **仍开放**。
+10. 开发目录热重载已验证（改 `manifest.json` 后宿主自动 `plugin.unload` → `plugin.load.success` → `plugin.reload.success`）。**仍开放**：权限扩大时的重新审核（`reloadDevPlugin` 抛 `PERMISSION_DENIED` 并要求回插件页确认）仅经代码核验，未实机触发。
+11. ~~`PluginPack` 生成的 `.piplug` 安装、禁用、升级和卸载回归~~ → **已确认**（A10，用户本轮确认）。
 
 ## 当前检查警告
 
