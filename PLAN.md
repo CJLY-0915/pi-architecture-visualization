@@ -391,6 +391,7 @@ architecture/
 真实宿主 P6 panel E2E（用户确认）已完成核心只读路径：在已安装 r6 中打开 `Architecture: Open Workbench`，载入最小模型后，节点详情、邻居查询、上游影响、同文件比较、Mermaid 预览、PNG 受限说明与健康检查均正常。此结果验证面板核心交互和固定桥接通道。重复打开/关闭/宿主销毁、权限拒绝与超限状态随后也已由用户确认（A7、A8、A12，见 `docs/host-acceptance.md`）。安装态副本 `C:\Users\DIY\.pi-desktop\plugins\installed\local.architecture-visualization` 已无注册表条目并经用户同意删除，dev 源是唯一生效源。
 
 退出标准：键盘可操作，中英文和明暗主题可用，窄窗口不丢失关键操作；导出包含模型版本、范围、来源 revision、生成时间、图例和限制。
+追加轮次（右侧停靠视图）：`manifest.json` 增加 `ui.view` 权限与 `contributes.views`（id `workbench`、entry 复用 `renderer/index.html`、icon `workflow`），工作台因此同时存在于右侧工作面板与浮动面板窗口。`renderer/index.html` 的 `.masthead` 原先无条件声明 `-webkit-app-region: drag`，在停靠视图里没有窗口可拖，只会吞点击与文本选择，现已按宿主设置的 `data-pi-plugin-panel-shape` 限定为仅浮动面板生效；宿主对视图把 `--pi-plugin-titlebar-height` 置 0，`.shell` 的 padding 自行收敛。**两处宿主事实经 app.asar 核验并记录**：(1) 视图 id 必须匹配 `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/`，`PluginCheck` 以 dotted id 实测拦截后改为 `workbench`；(2) 宿主**没有**打开停靠视图的 API（`pi.ui` 只有 `openPanel`/`closePanel`/`showToast`，panel bridge 无 `view/open` 分支），因此原计划"命令语义改为在右侧面板显示当前项目架构"无法实现，命令保留为浮动面板入口，视图由用户在工作面板点开。`ui.view` 授权与视图实机打开记为 A13，未验证。
 
 ### P7：架构健康、CI 与发布准备
 

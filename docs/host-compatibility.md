@@ -13,7 +13,7 @@
 - 分发镜像：**运行时集合，共 40 文件** —— `main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`。该集合由 `tests/package-scope.test.js` 断言（manifest 声明路径齐全、全部 `require()` 目标可解析、开发资产被排除），并已用干净镜像实测：只复制这 7 个根后 `PluginCheck` 报告 `40 file(s) would be packaged`、无错误。`tests/`、`fixtures/`、`docs/`、`.github/`、`README.md`、`PLAN.md` 只进仓库不进包；`architecture/`（本仓库自身的架构模型）、`Temp/`、`dist/`、`.pi/` 只留在本地。宿主打包器**不读取 `.gitignore`**，因此打包范围靠上述门禁与干净镜像保证，不靠 git 忽略规则。
 - 版本控制：开发源是 Git 仓库（`main` 分支）；`architecture/`、`Temp/`、`dist/`、`.pi/`、`node_modules/`、系统与编辑器垃圾均在 `.gitignore` 中，不被跟踪。
 - 版本控制 remote：**已建立**——`https://github.com/CJLY-0915/pi-architecture-visualization.git`（`origin`，`main` 分支，10 个提交已全部推送，本地与 `origin/main` 同步）。`.github/workflows/ci.yml` 自本次 push 起具备触发条件；**首个三平台 CI 结果尚未取得**，从本机无法读取（GitHub API 未认证返回 403）。取得全绿前，R3（门禁未经独立复核）只算完成一半。
-- 宿主生命周期与场景技能验收状态以 [host-acceptance.md](./host-acceptance.md) 为唯一实时来源：A 组 12 项已全部确认（A1–A3 附日志证据，A4 仅单测覆盖，A7–A12 为用户确认），B 组 13 个技能已全部实际执行一次。仍未取得的只有首个三平台 CI 结果（GitHub API 未认证返回 403）。
+- 宿主生命周期与场景技能验收状态以 [host-acceptance.md](./host-acceptance.md) 为唯一实时来源：A 组 13 项中 A1–A3 附日志证据、A4 仅单测覆盖、A7–A12 为用户确认，**A13（右侧停靠视图）未验证**——`ui.view` 已声明且 `PluginCheck` 通过，但用户尚未在插件页授权，宿主也没有供插件自行打开视图的 API；B 组 13 个技能已全部实际执行一次。仍未取得的还有首个三平台 CI 结果（GitHub API 未认证返回 403）。
 
 ## 已核验合同
 
@@ -34,6 +34,7 @@
 | `pi.fs.stat(pathFromRoot)` → `{size, mtimeMs}`（仅文件） | 已核验并用于模型读取前大小拒绝；真实新工具调用待验证 | `app.asar` broker；`src/host/read-model.js` |
 | `pi.fs.glob(pattern)`（500 条上限，readdir 顺序） | 已核验但不采用 | `app.asar` broker（`MAX_GLOB_MATCHES`） |
 | `ui.panel` 面板权限 | 已声明 | `manifest.json` |
+| `ui.view` 视图权限与 `contributes.views` | 已声明并已过 `PluginCheck`（40 文件、无错误）；**用户尚未在插件页授权，停靠视图未在真实宿主打开过**（A13 ⬜） | `manifest.json`；宿主 `PLUGIN_PERMISSIONS` 含 `ui.view` 且不在高风险列表；`pluginViews` 处理器要求 `ui.view` + `pluginActiveInProject` + entry 存在于插件目录内；视图 id 必须匹配 `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/`、icon 必须取自宿主 25 个图标名（`PluginCheck` 以 dotted id 实测拦截过一次） |
 | P6 只读模型浏览、查询/影响/比较、内存导出与健康展示 | 受控 fixture bridge 与用户真实 panel 已验证核心成功路径，Node 交互模拟与白名单测试通过；生命周期/拒绝/超限仍待逐项验证 | `renderer/index.html`；`tests/panel-interactions.test.js`、`tests/host-adapter.test.js`；用户面板 E2E |
 | `agent.prompt.inject` 技能权限 | 已声明 | `manifest.json` |
 | `agent.tool.register` 工具权限 | 已声明 | `manifest.json` |
@@ -57,7 +58,7 @@
 
 ## 尚需在实际宿主验证
 
-逐条操作、预期结果与证据行见 [host-acceptance.md](./host-acceptance.md)：A 组宿主生命周期 12 项已全部确认（A1–A3 附日志证据，A7–A12 为本轮用户确认），B 组 13 个场景技能已全部问过一次并落盘首产物。以下项目是**仍然不能仅凭目录检查视为已实现**的残余面（编号与 `host-acceptance.md` 的 A 组对应）：
+逐条操作、预期结果与证据行见 [host-acceptance.md](./host-acceptance.md)：A 组宿主生命周期现为 13 项，其中 A1–A3 附日志证据、A4 仅单测覆盖、A7–A12 为本轮用户确认、**A13（右侧停靠视图）未验证**；B 组 13 个场景技能已全部问过一次并落盘首产物。以下项目是**仍然不能仅凭目录检查视为已实现**的残余面（编号与 `host-acceptance.md` 的 A 组对应）：
 
 1. ~~插件能在当前 PI-Desktop 版本中加载、启用、禁用和卸载。~~ → **已确认**（A9，用户本轮确认；证据性质见 `host-acceptance.md` 表下注）。
 2. `onLoad` / `onUnload` 的命令注册和注销行为，以及异常时的清理行为。→ **仍开放**，仅有 `tests/registration-contract.test.js` 单测覆盖（A4 🧪）；卸载后命令是否真的从面板消失未实机确认。
@@ -68,8 +69,10 @@
 7. ~~技能目录与正文按需加载~~ → **已确认**：13 个技能注册（`count=13`），且本轮 13 个场景技能逐一实际执行并落盘首产物（见 `host-acceptance.md` B 组）。
 8. ~~`pi.fs` 的符号链接 containment~~ → **已确认**（A11，用户本轮确认）。宿主 broker 的 `.git`/`node_modules`/`.venv`/`__pycache__` 跳过与凭据路径屏蔽为代码核验结论，本插件未独立复测重解析点逃逸。
 9. `manifest.i18n`、设置页、明暗主题和面板拖拽带在当前宿主中的呈现。→ **仍开放**。
-10. 开发目录热重载已验证（改 `manifest.json` 后宿主自动 `plugin.unload` → `plugin.load.success` → `plugin.reload.success`）。**仍开放**：权限扩大时的重新审核（`reloadDevPlugin` 抛 `PERMISSION_DENIED` 并要求回插件页确认）仅经代码核验，未实机触发。
+10. 开发目录热重载已验证（改 `manifest.json` 后宿主自动 `plugin.unload` → `plugin.load.success` → `plugin.reload.success`）。**仍开放**：权限扩大时的重新审核——`reloadDevPlugin` 在 `readDeclaredAccess` 发现新权限时抛 `PERMISSION_DENIED: manifest now requests <perm>; reload it from the Plugins page to review`（`app.asar` `out/main/index.js:96142-96146`），要求回插件页确认。本次新增 `ui.view` 正是这条路径，需用户授权后才能验证 A13。
 11. ~~`PluginPack` 生成的 `.piplug` 安装、禁用、升级和卸载回归~~ → **已确认**（A10，用户本轮确认）。
+12. ~~宿主停靠视图机制（`contributes.views`）~~ → **代码已核验、未实机验证**：`pluginViews` 处理器要求 `ui.view` + `pluginActiveInProject` + entry 存在于插件目录内；宿主用 `WebContentsView` 挂到主窗口 contentView（不是独立 BrowserWindow），视图与面板共用同一 preload；`MAX_LIVE_VIEWS = 4` 且 LRU 淘汰。**仍开放**：A13——`ui.view` 授权后视图是否真的出现在右侧工作面板并可用。
+13. 插件**无法自行打开**停靠视图：`pi.ui` 只有 `openPanel`/`closePanel`/`showToast`（`app.asar` `out/main/index.js:95010-95012`），panel bridge 的 channel switch 没有 `view/open` 分支，未识别通道只会落到插件自己的 `onPanelInvoke`（`out/main/index.js:96328-96337`）。因此"用命令在右侧面板显示架构"这个语义宿主做不到，命令保留为浮动面板入口。
 
 ## 当前检查警告
 

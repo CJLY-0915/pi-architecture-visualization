@@ -89,13 +89,20 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 
 ## P6 工作台、受限分析与内存导出
 
-命令 **Architecture: Open Workbench** 打开 `renderer/index.html`。面板只经 `window.pluginBridge.invoke` 调用宿主 `workspace.get`、`fs.stat`、`fs.readText`，以及插件显式实现的固定 panel 通道：`architecture.query`、`architecture.impact`、`architecture.compare`、`architecture.exportPreview`、`architecture.health`。它不能访问任意 Electron IPC，也不会调用 Agent 工具注册表。
+同一个只读工作台有两个入口，共用 `renderer/index.html` 与同一套 bridge：
+
+- **右侧工作面板视图**（`contributes.views`，需 `ui.view` 权限）：宿主把 `WebContentsView` 停靠在右侧工作面板，与 GitLens、文件管理器、主题工坊等插件视图并列，由用户在工作面板里点开。宿主为视图把 `--pi-plugin-titlebar-height` 置为 0 并标记 `data-pi-plugin-panel-shape="view"`。
+- **命令 Architecture: Open Workbench**：仍打开浮动面板窗口（`pi.ui.openPanel`）。
+
+面板只经 `window.pluginBridge.invoke` 调用宿主 `workspace.get`、`fs.stat`、`fs.readText`，以及插件显式实现的固定 panel 通道：`architecture.query`、`architecture.impact`、`architecture.compare`、`architecture.exportPreview`、`architecture.health`。它不能访问任意 Electron IPC，也不会调用 Agent 工具注册表。
+
+> 宿主**没有**提供打开停靠视图的 API：`pi.ui` 只有 `openPanel`/`closePanel`/`showToast`，panel bridge 的 switch 里也没有 `view/open` 分支（未识别通道只会落到插件自己的 `onPanelInvoke`）。因此插件无法用命令把右侧视图调出来，只能由用户在工作面板点开；命令因此保留为浮动面板入口，没有改成"在右侧面板显示"这种宿主做不到的语义。
 
 - 查询、影响和比较复用相同的读取前 2 MiB 限额、Manifest 参数校验和 240 KiB 响应预算。面板保留 `truncated`、停止原因、未解析目标、悬空引用、覆盖不完整、`sourceContentVerified:false`、证据 stale 与 freshness-unknown；它们永远不显示为完整、已验证或新鲜结论。
 - 内存预览支持 Structurizr DSL、DOT、Mermaid、Draw.io XML、Markdown、JSON、SVG 和离线 HTML。每个预览带 schemaVersion、范围、revision、生成时间、覆盖状态、图例和限制；不下载、不保存、不写工作区。PNG 明确报告为受限：当前零依赖安全边界没有图形渲染栈，因此不生成或伪造 PNG 二进制。
 - 比较要求用户输入两个明确的工作区相对路径；影响要求明确稳定节点 ID 或已声明证据路径。面板不会猜测 Git、分支、变更集或目标。
 
-受控浏览器预览已在真实 `fixtures/valid-minimal-model.json` 上跑通模型读取、节点详情、待厘清项、邻居查询、上游影响、同文件比较、Mermaid 内存预览与健康检查，并实际展示覆盖不完整、证据缺失、新鲜度未知和传播停止原因。随后用户已在已安装 r6 的真实 PI-Desktop 面板中确认上述核心只读路径与 PNG 受限提示均正常。重复打开/关闭/宿主销毁、权限拒绝和超限返回形状未单独演练，仍保留为宿主兼容性验证范围。
+受控浏览器预览已在真实 `fixtures/valid-minimal-model.json` 上跑通模型读取、节点详情、待厘清项、邻居查询、上游影响、同文件比较、Mermaid 内存预览与健康检查，并实际展示覆盖不完整、证据缺失、新鲜度未知和传播停止原因。随后用户已在已安装 r6 的真实 PI-Desktop 面板中确认上述核心只读路径与 PNG 受限提示均正常。重复打开/关闭/宿主销毁、权限拒绝和超限返回形状未单独演练，仍保留为宿主兼容性验证范围。右侧停靠视图本身尚未在真实宿主中打开过一次（需要 `ui.view` 授权），因此它记入 [host-acceptance.md](./docs/host-acceptance.md) 的未验证项，不当成已验证。
 
 ## P7 架构健康检查
 
@@ -122,7 +129,7 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 
 ## 本轮验证
 
-- `npm test`：252 通过，0 失败；脚本固定为 `node --test tests/*.test.js`（不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。覆盖受控 `pluginBridge` 面板交互、固定通道白名单、内存导出边界、P7 无效模型诊断回归、采集响应预算与 coverage 账本落盘，以及 manifest 贡献合同（13 条技能显式 id 与唯一性、agent 扩展声明）、注册面与 manifest 的双向一致、技能描述长度与路由表完整性、零依赖常驻规则的幂等性，和 `pom.xml`/`build.gradle` 被显式报为未建模而非静默忽略。
+- `npm test`：254 通过，0 失败；脚本固定为 `node --test tests/*.test.js`（不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。覆盖受控 `pluginBridge` 面板交互、固定通道白名单、内存导出边界、P7 无效模型诊断回归、采集响应预算与 coverage 账本落盘，manifest 贡献合同（13 条技能显式 id 与唯一性、agent 扩展声明）、注册面与 manifest 的双向一致、技能描述长度与路由表完整性、零依赖常驻规则的幂等性、`pom.xml`/`build.gradle` 被显式报为未建模而非静默忽略，以及停靠视图的宿主合同（id 形状、唯一性、entry 在插件内且随包发布、icon 取自宿主清单、`ui.view` 权限、drag 区只对浮动面板生效）。
 - `PluginCheck`：当前工作区无错误通过；**仅复制运行时集合**（`main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`）的干净镜像经同一官方校验为 **40 个文件**（含 `src/core/compare-strings.js`）。该集合由 `tests/package-scope.test.js` 断言，并与 `docs/host-compatibility.md` 记录一致。两次检查均仅提示 `agent.prompt.inject`、`agent.tool.register` 需用户显式授予的高风险权限；注册表中这两项与 `agent.extension` 均已显式授予。
 - `PluginPack`：已生成并审计 `dist/` 中的最终清洁交付包。因当前宿主打包器不排除 `.pi/` 或 `Temp/`，该包由不含会话目标文件与临时镜像的干净镜像经官方打包器生成；包内无 `.pi`、缓存、临时目录、凭据形文件、`node_modules`、网络权限或远程 CDN。分发版走“已安装插件”路径，没有 dev 插件的权限审查 UI，装机时权限清单需在安装流程中呈现。
 
