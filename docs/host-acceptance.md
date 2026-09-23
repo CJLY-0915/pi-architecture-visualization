@@ -43,13 +43,13 @@
 | architecture-communicator | 给管理层讲清楚这个插件 | 单一受众视图 | ✅ `views/executive.dot` + `communication-notes.md`。受众=决定是否继续投入者，决策写成一句；保留稳定 id 与出处簇；5 条"翻译时没有洗掉的约束"显式列出（含 A7–A12 的证据性质是用户证言） |
 | c4model | 出一张 C4 图 | L1/L2/L3 C4 视图 | ✅ `views/c4-l1-system-context.structurizr.dsl` + `views/c4-l2-container.structurizr.dsl` + `views/c4-l3-component.structurizr.dsl` + `c4-fit-notes.md`。**2026-09-23 已闭合**：当时发现 7 个 `module` 直接挂 `system` 导致 L3/L4 不可切；现已重塑为 6 container + 7 component，并新增插件侧 `c4` 导出格式按 `parentId` 深度切层，L1/L2/L3 全部可切。L4 仍刻意不切 |
 | graphviz | 出一张关系密度高的 DOT | `.dot` 源 | ✅ `views/module-relations.dot`。27 条边**全部带关系类型标签**，DOT id 即模型 id；`rankdir=TB`、形状按图例统一；孤点按模型原样保留，不为构图补边 |
-| drawio | 给我可编辑的 .drawio | `.drawio` XML | ✅ `views/current-state.drawio`（14195 字节，由插件自己的 `export-preview` drawio 渲染器生成，非手写；20 节点 + 27 边，id 集合与模型完全一致，边端点全部可解析）+ `drawio-export-notes.md`。**2026-09-23 冲突已闭合**：导出器现在对非 `confirmed`/`high` 的事实带标签后缀、状态填充色与虚线轮廓，规则写在 XML 注释里；技能规则改为"验证标记存活"。同轮修掉预览预算截断 drawio 导出的缺陷 |
+| drawio | 给我可编辑的 .drawio | `.drawio` XML | ✅ `views/current-state.drawio`（14271 字节，由插件自己的 `export-preview` drawio 渲染器生成，非手写；20 节点 + 27 边，id 集合与模型完全一致，边端点全部可解析）+ `drawio-export-notes.md`。**2026-09-23 冲突已闭合**：导出器现在对非 `confirmed`/`high` 的事实带标签后缀、状态填充色与虚线轮廓，规则写在 XML 注释里；技能规则改为"验证标记存活"。同轮修掉预览预算截断 drawio 导出的缺陷 |
 
 > 13 项全部问过。回答均来自模型/工具而非目录列表；产物落盘在 `architecture/`（本地、不入库）。两条当时的保留意见**均已在 2026-09-23 闭合**：
 > 1. ~~**legacy-system-visualizer 是场景错配下的验收**~~ → 已在 `fixtures/legacy-sparse-project/`（真正稀疏：无文档、无测试、无 owner）上补验，产出 `architecture/legacy-inventory-sparse.md`，行为由 `tests/legacy-sparse-evidence.test.js` 固定。
 > 2. ~~**drawio 暴露了实现与技能规则的冲突**~~ → 导出器改为表达 `status`/`confidence`，技能规则同步改写。两边不再矛盾。
 
-## C. 本轮（2026-09-23）已沉淀的工程基线
+## C. 1.1.0（2026-09-23）已沉淀的工程基线
 
 - `tests/registration-contract.test.js`：从 manifest 派生命令/工具/激活事件/面板白名单的期望集合，双向比对注册与注销。
 - `tests/skill-contract.test.js`：技能描述长度、路由表、工具引用、常驻规则指向的技能名、禁 shell/写指令。
@@ -59,7 +59,7 @@
 - 全套 268 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。
 - `.github/workflows/ci.yml` 的三平台 `node --test tests/*.test.js` **已全绿**：commit `bb03244` 的 run 中 macos-latest 9s、ubuntu-latest 5s、windows-latest 18s 全部 Success（总 21s）。证据是用户在 GitHub Actions 页面提供的运行截图，本机读不到（GitHub API 未认证返回 403）。
 
-## D. 本轮（2026-09-23）闭合的三项记录在案缺口
+## D. 1.1.0（2026-09-23）闭合的三项记录在案缺口
 
 - **C4 层级不可切**：新增导出格式 `c4`（`{focus, level}` 按 `parentId` 深度切 L1/L2/L3，元素类型按节点类型映射，`status`/`confidence` 与模型 id 保留在描述里，`parentId` 已表达的包含关系不再画 `contains` 边，模型没有该深度节点时以 `no_nodes_at_c4_level` 拒绝）；本仓库模型重塑为 6 container + 7 component，`actor:agent` 改为 `external:agent`（LLM 不是人，C4 `person` 会误导）；新增 `views/c4-l3-component.structurizr.dsl`，`c4-l1`/`c4-l2` 与 `current-state.drawio` 重新生成。
 - **Draw.io 丢弃 status/confidence**：非 `confirmed`/`high` 的事实带标签后缀、状态填充色（confirmed 蓝/inferred 琥珀/assumed 橙/unknown 灰）与虚线轮廓，规则写在 XML 注释里；`skills/drawio/SKILL.md` 规则改为"验证标记存活，不要手工加第二套"。顺带修掉预览预算 12000 字符会截断 20 节点/27 边模型的 drawio 导出——截断后的 XML 是被切断的文件，预算提高到 24000 且截断时明确"不可作交付物"。
@@ -68,7 +68,7 @@
 - 版本 1.0.0 → 1.1.0；`node --test tests/*.test.js` 268/268。
 - **仍未闭合**：A13 生命周期细节（重复打开/关闭停靠视图后的残留注册与重复面板）、A14 面板采集探测通道、1.2.0 `.piplug` 安装回归（1.0.0/1.1.0 的包也未重做）、A4 命令注销、采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断、Java/Maven/Gradle 依赖采集、实际保存/发布、L4 Code 层。逐条性质与状态见 `docs/positioning-and-value.md` 第五节。
 
-## E. 本轮（2026-09-23）新增：面板采集探测（1.2.0）
+## E. 1.2.0（2026-09-23）新增：面板采集探测
 
 - 面板新增第六个通道 `architecture.collect`：`main.js` 的 `PANEL_ANALYSIS_CHANNELS` 与 `onPanelInvoke` 分派该通道，只接受 `scopeRoots` 与 `maxFiles`，其余 key 返回 `invalid_option`，实现委托 `collectCurrentState`——与命令/Agent 工具走同一份采集器，不引入第二套逻辑。
 - 采集表单位置在 `<div id="reader" hidden>` **之外**（`path-help` 之后）：整个分析区要载入模型后才出现，而采集是引导步骤，必须在没有模型时可达。结果只渲染摘要卡片（计数、覆盖账本、盲区、上限、边界），不把有界摘要伪装成可浏览的模型。
