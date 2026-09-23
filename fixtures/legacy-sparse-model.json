@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "legacy-order-service",
+    "name": "Legacy Order Service (sparse fixture)"
+  },
+  "scope": {
+    "roots": ["."]
+  },
+  "sourceRevision": null,
+  "generatedAt": "2024-05-01T09:30:00Z",
+  "coverage": {
+    "filesListed": 11,
+    "filesScanned": 8,
+    "filesSkipped": 0,
+    "complete": false
+  },
+  "nodes": [
+    {
+      "id": "module.index",
+      "name": "Order Entrypoint (src/index.js)",
+      "type": "module",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.index.handlers"]
+    },
+    {
+      "id": "module.orders",
+      "name": "Legacy Orders Module (src/legacy/orders.cjs)",
+      "type": "module",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.orders.require"]
+    },
+    {
+      "id": "external.upstream",
+      "name": "Upstream Order Host (http://10.0.0.7:8080)",
+      "type": "external",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.index.upstream", "ev.appprops.upstream"]
+    },
+    {
+      "id": "module.store",
+      "name": "Store dependency reached only through require(expr)",
+      "type": "module",
+      "state": "current",
+      "status": "unknown",
+      "confidence": "unknown",
+      "evidenceIds": []
+    },
+    {
+      "id": "module.notify",
+      "name": "Notification handler guessed to serve the order.create key",
+      "type": "module",
+      "state": "current",
+      "status": "assumed",
+      "confidence": "low",
+      "evidenceIds": []
+    },
+    {
+      "id": "datastore.ledger",
+      "name": "Store the nightly reconciliation reads and writes",
+      "type": "datastore",
+      "state": "current",
+      "status": "unknown",
+      "confidence": "unknown",
+      "evidenceIds": []
+    },
+    {
+      "id": "component.nightly",
+      "name": "nightly-reconcile batch job (config/jobs.yml)",
+      "type": "component",
+      "state": "current",
+      "status": "assumed",
+      "confidence": "low",
+      "evidenceIds": []
+    },
+    {
+      "id": "actor.operator",
+      "name": "Human operator who runs the scripts and edits jobs.yml by hand",
+      "type": "actor",
+      "state": "current",
+      "status": "unknown",
+      "confidence": "unknown",
+      "evidenceIds": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.index.orders",
+      "source": "module.index",
+      "target": "module.orders",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.index.require"]
+    },
+    {
+      "id": "edge.index.upstream",
+      "source": "module.index",
+      "target": "external.upstream",
+      "type": "calls",
+      "state": "current",
+      "status": "assumed",
+      "confidence": "low",
+      "evidenceIds": []
+    },
+    {
+      "id": "edge.orders.store",
+      "source": "module.orders",
+      "target": "module.store",
+      "type": "depends_on",
+      "state": "current",
+      "status": "unknown",
+      "confidence": "unknown",
+      "evidenceIds": []
+    },
+    {
+      "id": "edge.nightly.ledger",
+      "source": "component.nightly",
+      "target": "datastore.ledger",
+      "type": "writes",
+      "state": "current",
+      "status": "assumed",
+      "confidence": "low",
+      "evidenceIds": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev.index.handlers",
+      "path": "src/index.js",
+      "type": "code",
+      "line": 4
+    },
+    {
+      "id": "ev.index.require",
+      "path": "src/index.js",
+      "type": "code",
+      "line": 5
+    },
+    {
+      "id": "ev.index.upstream",
+      "path": "src/index.js",
+      "type": "code",
+      "line": 10
+    },
+    {
+      "id": "ev.orders.require",
+      "path": "src/legacy/orders.cjs",
+      "type": "code",
+      "line": 4
+    },
+    {
+      "id": "ev.appprops.upstream",
+      "path": "config/app.properties",
+      "type": "config",
+      "line": 4
+    }
+  ],
+  "views": [
+    {
+      "id": "view.order-current",
+      "title": "Order service current state (sparse)",
+      "kind": "current-state",
+      "nodeIds": ["module.index", "module.orders", "external.upstream"]
+    }
+  ],
+  "findings": [],
+  "decisions": [],
+  "migrationSlices": [],
+  "unknowns": [
+    {
+      "id": "unknown.store.identity",
+      "question": "What module does orders.cjs actually load through require(expr), and is it src/legacy/store.cjs?",
+      "owner": "unknown (no owner recorded anywhere in the repo)",
+      "validationStep": "grep a live process for loaded module names, or drop a require-logging shim into loadDep and dispatch one order.create event"
+    },
+    {
+      "id": "unknown.ledger.store",
+      "question": "Which datastore does the nightly reconciliation read and write, and who owns its schema?",
+      "owner": "unknown (no CODEOWNERS, no team field, jobs.yml has no owner)",
+      "validationStep": "read scripts/reconcile.py against the real store and confirm store.host=10.0.0.9:5432 in config/app.properties points at it"
+    },
+    {
+      "id": "unknown.jobs.owner",
+      "question": "Who owns and still runs the nightly-reconcile job declared in config/jobs.yml, and which scheduler reads that file?",
+      "owner": "unknown (jobs.yml carries no owner field)",
+      "validationStep": "ask operations which scheduler consumes config/jobs.yml and inspect its last successful run"
+    },
+    {
+      "id": "unknown.upstream.contract",
+      "question": "What is the request/response contract of the upstream host http://10.0.0.7:8080, and which partner owns it?",
+      "owner": "unknown (no schema, document or partner record found)",
+      "validationStep": "capture one live request/response pair and locate the owning team, then record the schema as evidence"
+    },
+    {
+      "id": "unknown.notify.target",
+      "question": "Is src/legacy/notify.js the handler bound to the order.create dispatch key, or is that key routed elsewhere at runtime?",
+      "owner": "unknown (dispatch table is built at runtime)",
+      "validationStep": "instrument the handlers map in src/index.js and dispatch one order.create event to observe the resolved target"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ Be precise, or the user waits for a surface that does not exist:
 - PI-Desktop has no Draw.io MCP server and no Draw.io renderer in this plugin. Nothing here opens, renders or edits a diagram.
 - The deliverable is an XML file written to disk by you, inside the target project's workspace. The user opens it in Draw.io or diagrams.net themselves.
 - The plugin's in-panel export preview covers Draw.io XML as a text preview only. It does not save, download or write anything, and it is not an editing surface.
-- The exported XML carries `nodes` and `edges`: one `mxCell` per node (`id="n:<nodeId>"`) and per edge (`id="e:<edgeId>"`), a single diagram page, a deterministic grid layout, node names as labels and edge types as edge labels. Evidence, `status`, `confidence` and the declared `unknowns`, `findings`, `decisions` and `migrationSlices` collections are not expressed in the XML, and the layout needs manual arrangement after import.
+- The exported XML carries `nodes` and `edges`: one `mxCell` per node (`id="n:<nodeId>"`) and per edge (`id="e:<edgeId>"`), a single diagram page, a deterministic grid layout, node names as labels and edge types as edge labels. A fact that is not `confirmed`/`high` is marked three ways in the file: a ` [status · confidence]` label suffix, a status fill colour (confirmed=blue, inferred=amber, assumed=orange, unknown=grey) and a dashed outline, with the rule restated in an XML comment. Evidence bodies and the declared `unknowns`, `findings`, `decisions` and `migrationSlices` collections are not expressed in the XML, and the layout needs manual arrangement after import.
 
 ## Canonical and derived
 
@@ -25,7 +25,7 @@ Every manual fact change made in Draw.io — a renamed service, a new dependency
 ## Workflow
 
 1. Get the model first — `system-modeler`, or the scenario skill that fits the question. Run `architecture_validate` on it.
-2. Derive the Draw.io XML from that model, keeping `n:<nodeId>` and `e:<edgeId>` cell ids so a shape can be traced back to a node.
+2. Derive the Draw.io XML from that model, keeping `n:<nodeId>` and `e:<edgeId>` cell ids so a shape can be traced back to a node. Uncertainty is already in the file — check that the marks survived instead of adding your own.
 3. Write `<name>.drawio` to disk. Say what it contains and what it omits.
 4. When the user edits it, fold the fact changes back into the model and re-validate.
 
@@ -34,7 +34,7 @@ Keep the file self-describing: a header comment or a companion note naming the m
 ## Quality rules
 
 - Preserve node and edge ids through the conversion. An id is the only link back to evidence.
-- Mark low-confidence, assumed and unknown facts visibly in the file — a label suffix, a color, a note. An editable file must not imply more certainty than the model claims.
+- Mark low-confidence, assumed and unknown facts visibly in the file — a label suffix, a color, or a note. An editable file must not imply more certainty than the model claims. The exporter already does this (label suffix, status fill colour, dashed outline); your job is to verify the marks survived, not to add a second set by hand.
 - Do not hand-place facts the model does not contain. Draw.io is where layout goes, not new architecture.
 - Do not promise a live editing surface, an MCP round trip, or a re-import that updates the model. None of that exists here.
 - Regenerate rather than patch. Two hand-edited copies of one diagram are two sources of truth.

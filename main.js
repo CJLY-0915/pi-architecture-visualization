@@ -240,12 +240,15 @@ async function onPanelInvoke(channel, payload) {
   }
   if (name === 'architecture_export_preview') {
     const request = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
-    if (!request || typeof request.path !== 'string' || request.path.length === 0 || request.path.length > 1024 || typeof request.format !== 'string' || Object.keys(request).some((key) => key !== 'path' && key !== 'format')) {
-      return { ok: false, error: { code: 'invalid_option', message: 'Provide a bounded model path and one preview format.' } };
+    // focus and level only mean anything to the C4 renderer; every other format
+    // ignores them, so they are accepted here and validated there.
+    const boundedFocus = Boolean(request) && (request.focus === undefined || (typeof request.focus === 'string' && request.focus.length > 0 && request.focus.length <= 1024));
+    if (!request || typeof request.path !== 'string' || request.path.length === 0 || request.path.length > 1024 || typeof request.format !== 'string' || !boundedFocus || Object.keys(request).some((key) => key !== 'path' && key !== 'format' && key !== 'focus' && key !== 'level')) {
+      return { ok: false, error: { code: 'invalid_option', message: 'Provide a bounded model path, one preview format, and an optional bounded C4 focus node id.' } };
     }
     const loaded = await readModel(readHost(), request.path);
     if (!loaded.ok) return loaded;
-    return boundResponse(exportPreview(loaded.model, request.format));
+    return boundResponse(exportPreview(loaded.model, request.format, { focus: request.focus, level: request.level }));
   }
   if (name === 'architecture_health') return executeHealth(readHost(), payload);
   return executeAnalysis(readHost(), name, payload);

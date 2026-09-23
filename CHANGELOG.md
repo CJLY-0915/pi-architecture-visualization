@@ -63,3 +63,55 @@
   条件写入，因此不把先读后写宣传为安全发布。
 - **命令注销（A4）只有单测覆盖**，未在真实宿主确认卸载后命令从命令面板消失。
 - 三个采集适配器均为面向行的启发式，不是完整解析器；各自已知限制写在文件头注释中。
+
+## [1.1.0] - 2026-09-23
+
+功能性加固版：闭合 C4 层级、Draw.io 确定性标记、遗留场景错配三项记录在案的缺口。不宣称完整——第五节列出的未闭合项原样保留。
+
+### 新增
+
+- **C4 层级导出格式 `c4`**：按 `parentId` 链切 L1/L2/L3，元素类型按节点类型映射，
+  `status`/`confidence` 与模型 id 保留在每个元素上；模型没有该深度节点时以
+  `no_nodes_at_c4_level` 拒绝，不输出空图。`structurizr` 保持拍平变体不变。
+- `docs/positioning-and-value.md`：核心作用与定位、六个具体使用场景（每个都写清
+  "得到什么/得不到什么"）、对工程实践的可观察提升、以及三项缺口的改进方案与验证标准。
+- `fixtures/legacy-sparse-project/` + `fixtures/legacy-sparse-model.json`：真正证据稀疏的
+  遗留系统夹具（无文档、无测试、无 owner、动态 require、硬编码主机、无 owner 的调度表）。
+- `architecture/views/c4-l3-component.structurizr.dsl`。
+- `tests/legacy-sparse-evidence.test.js`：5 条用例固定稀疏证据路径。
+
+### 修复
+
+- **Draw.io 导出丢弃 `status`/`confidence`**：非 `confirmed`/`high` 的事实现在带三重标记
+  （标签后缀、状态填充色、虚线轮廓），规则写在 XML 注释里。`skills/drawio/SKILL.md` 的
+  规则从"你要标记"改为"验证标记存活，不要手工加第二套"——实现与规则不再互相矛盾。
+- **预览预算会截断 Draw.io 导出**：12000 字符对 20 节点/27 边的模型就会截断，而截断后的
+  XML 是被切断的文件，不是"小一点的文件"。预算提高到 24000，且截断时对 drawio 追加
+  "不要把它当作交付物"的限制。
+- **本仓库模型不是 C4 形状**：7 个 `module`（实为源码目录，C4 语义上就是组件）改为
+  `component` 并挂到正确容器；新增 `container:skills-catalog`/`container:verification`/
+  `container:documentation`；补 8 条容器级聚合边；`actor:agent` 是 LLM 不是人，改为
+  `external:agent`。L1/L2/L3 现在全部可切。
+- **`legacy-system-visualizer` 是场景错配下验收的**：该技能此前只在本插件仓库（文档密集）
+  上跑过。现已在 `fixtures/legacy-sparse-project/` 上补验，产出
+  `architecture/legacy-inventory-sparse.md`，行为由回归测试固定。
+- 新增稳定诊断码 `no_nodes_at_c4_level`。
+
+### 已知限制（记录在案，未修复）
+
+- **右侧停靠视图只验证了一半**：`ui.view` 授权与插件重载已确认，但视图标签页尚未在真实
+  宿主中被打开过一次。宿主没有供插件自行打开视图的 API，因此只能由用户在工作面板点开。
+- **采集器读取但不建模的文件类型静默无诊断**：`fixtures/legacy-sparse-project/` 实测
+  `config/app.properties` 与三个 ops 脚本被读取，却不产生节点也不产生诊断。已记录在
+  `legacy-inventory-sparse.md`，没有伪装成覆盖；不凭空实现解析器。
+- **Java/Maven/Gradle 依赖采集未实现**：只保证不静默忽略。
+- **模型不是完整 C4 形状**：L4（Code）刻意不切，模块密度图归 `graphviz`；`datastore` 映射为
+  C4 `container`，因为 Structurizr DSL 没有独立的数据库元素。
+- **Draw.io 导出器仍不表达证据正文与 id-only 集合**（`views`/`findings`/`decisions`/
+  `migrationSlices`/`unknowns`）。
+- **`actor` 一律映射为 C4 `person`**：模型若用 `actor` 表示非人类执行者，需改用 `external`
+  类型，渲染器不代判（本仓库的 `actor:agent` 已因此改为 `external:agent`）。
+- **实际保存/发布未实现**：宿主 `pi.fs.writeText` 是直接覆盖，没有原子替换、排他创建或
+  条件写入，因此不把先读后写宣传为安全发布。
+- **命令注销（A4）只有单测覆盖**，未在真实宿主确认卸载后命令从命令面板消失。
+- 三个采集适配器均为面向行的启发式，不是完整解析器；各自已知限制写在文件头注释中。

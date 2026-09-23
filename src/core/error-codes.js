@@ -47,6 +47,7 @@ const CODES = Object.freeze({
   MISSING_EVIDENCE: 'missing_evidence',
   LOW_CONFIDENCE_FACT: 'low_confidence_fact',
   UNKNOWN_CONFIDENCE_FACT: 'unknown_confidence_fact',
+  NO_NODES_AT_C4_LEVEL: 'no_nodes_at_c4_level',
 });
 
 const CODE_MESSAGES = Object.freeze({
@@ -90,6 +91,7 @@ const CODE_MESSAGES = Object.freeze({
   [CODES.MISSING_EVIDENCE]: 'A node or edge declares no evidence at all.',
   [CODES.LOW_CONFIDENCE_FACT]: 'A node or edge is held with low confidence.',
   [CODES.UNKNOWN_CONFIDENCE_FACT]: 'A node or edge has unknown confidence.',
+  [CODES.NO_NODES_AT_C4_LEVEL]: 'The requested C4 level has no node at that depth below the focus, so the model does not describe that level.',
 });
 
 function isKnownCode(code) {

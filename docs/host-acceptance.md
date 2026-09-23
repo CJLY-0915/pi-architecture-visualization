@@ -38,15 +38,15 @@
 | flow-visualizer | 一次"校验模型"请求经过哪些节点 | 单条路径的 `.dot`/`.mmd` | ✅ `views/flow-validate-request.dot`。`architecture_query mode=paths` 得 `actor:agent →calls→ module:host-adapters →reads→ datastore:target-model`，**两条边均 inferred/medium**，无 confirmed 运行时证据；3 个缺口画成 unknown 并附定案检查 |
 | deployment-topology-analyzer | 它跑在哪里、如何发布 | 容器/服务清单 | ✅ `deployment-inventory.md`。可部署单元按声明确认 4 行；**本仓库无 compose/K8s/Terraform/Dockerfile**，唯一 `docker-compose.yml` 是 `fixtures/` 测试夹具，按技能规则明确排除；runtime 一节 5 项全 unknown 各附定案检查 |
 | risk-quality-reviewer | 这个架构有什么风险 | 排序风险表，每条带文件路径 | ✅ `risk-register.md`。6 条风险各带 8 字段（含 acceptance）；排序用 `architecture_impact`：`module:core-model` 13 节点 depth 5 **截断**、`module:contract` 14 节点 depth 4 未截断；另附 3 条技术债与 3 项覆盖缺口 |
-| legacy-system-visualizer | （换到无文档仓库）这系统是什么 | unknowns-first 清单 | ✅ **场景错配已如实记录**：`legacy-inventory.md`。本仓库文档密度高于典型遗留系统，故 unknown 分"未经运行时证实"与"无主"两类；10 条 unknown 各带责任角色与定案步骤；聚类 5 组 + 4 个绑定五字段的切片 |
+| legacy-system-visualizer | （换到无文档仓库）这系统是什么 | unknowns-first 清单 | ✅ `legacy-inventory.md`（本仓库，文档密集故 unknown 分"未经运行时证实"与"无主"两类）+ **2026-09-23 在真正稀疏的 `fixtures/legacy-sparse-project/` 上补验**，产出 `legacy-inventory-sparse.md`：8 节点里 5 个 unknown/assumed、3 个 confirmed，未知多于事实；开篇即未知项，每条带责任角色与定案步骤；`collectModel` 在该夹具上实测 3 条 `unsupported_input`，`orders→store` 这条隐藏依赖确实抓不到并已记录 |
 | architecture-communicator | 给管理层讲清楚这个插件 | 单一受众视图 | ✅ `views/executive.dot` + `communication-notes.md`。受众=决定是否继续投入者，决策写成一句；保留稳定 id 与出处簇；5 条"翻译时没有洗掉的约束"显式列出（含 A7–A12 的证据性质是用户证言） |
-| c4model | 出一张 C4 图 | L1/L2 C4 视图 | ✅ `views/c4-l1-system-context.structurizr.dsl` + `views/c4-l2-container.structurizr.dsl` + `c4-fit-notes.md`。**发现模型不是 C4 形状**：7 个 `module` 节点直接挂 `system`，跳过了 container/component，故 L3/L4 不可切、L2 只剩 3 个 container（12 条内部边里 9 条在 module 之间，L2 一条画不出） |
-| graphviz | 出一张关系密度高的 DOT | `.dot` 源 | ✅ `views/module-relations.dot`。19 条边**全部带关系类型标签**，DOT id 即模型 id；`rankdir=TB`、形状按图例统一；3 个孤点（`module:docs`、`module:contract`、`external:node-builtins`）按模型原样保留，不为构图补边 |
-| drawio | 给我可编辑的 .drawio | `.drawio` XML | ✅ `views/current-state.drawio`（7796 字节，由插件自己的 `export-preview` drawio 渲染器生成，非手写；17 节点 + 19 边，id 集合与模型完全一致，边端点全部可解析）+ `drawio-export-notes.md`。**记录一处技能与实现的冲突**：导出器不表达 `status`/`confidence`，不满足技能" visibly 标记低置信度"的规则，本轮不手改 XML 而给人工标记指南 |
+| c4model | 出一张 C4 图 | L1/L2/L3 C4 视图 | ✅ `views/c4-l1-system-context.structurizr.dsl` + `views/c4-l2-container.structurizr.dsl` + `views/c4-l3-component.structurizr.dsl` + `c4-fit-notes.md`。**2026-09-23 已闭合**：当时发现 7 个 `module` 直接挂 `system` 导致 L3/L4 不可切；现已重塑为 6 container + 7 component，并新增插件侧 `c4` 导出格式按 `parentId` 深度切层，L1/L2/L3 全部可切。L4 仍刻意不切 |
+| graphviz | 出一张关系密度高的 DOT | `.dot` 源 | ✅ `views/module-relations.dot`。27 条边**全部带关系类型标签**，DOT id 即模型 id；`rankdir=TB`、形状按图例统一；孤点按模型原样保留，不为构图补边 |
+| drawio | 给我可编辑的 .drawio | `.drawio` XML | ✅ `views/current-state.drawio`（14195 字节，由插件自己的 `export-preview` drawio 渲染器生成，非手写；20 节点 + 27 边，id 集合与模型完全一致，边端点全部可解析）+ `drawio-export-notes.md`。**2026-09-23 冲突已闭合**：导出器现在对非 `confirmed`/`high` 的事实带标签后缀、状态填充色与虚线轮廓，规则写在 XML 注释里；技能规则改为"验证标记存活"。同轮修掉预览预算截断 drawio 导出的缺陷 |
 
-> 13 项全部问过。回答均来自模型/工具而非目录列表；产物落盘在 `architecture/`（本地、不入库）。两条需要记录的保留意见：
-> 1. **legacy-system-visualizer 是场景错配下的验收**——本仓库不是无文档遗留系统，该项的完整验收需要一个真正的稀疏证据目标。
-> 2. **drawio 暴露了实现与技能规则的冲突**——`src/core/export-preview.js` 的 drawio 渲染器丢弃 `status`/`confidence`，技能却要求 visibly 标记。要么改导出器，要么改技能措辞，不能两边都留着。
+> 13 项全部问过。回答均来自模型/工具而非目录列表；产物落盘在 `architecture/`（本地、不入库）。两条当时的保留意见**均已在 2026-09-23 闭合**：
+> 1. ~~**legacy-system-visualizer 是场景错配下的验收**~~ → 已在 `fixtures/legacy-sparse-project/`（真正稀疏：无文档、无测试、无 owner）上补验，产出 `architecture/legacy-inventory-sparse.md`，行为由 `tests/legacy-sparse-evidence.test.js` 固定。
+> 2. ~~**drawio 暴露了实现与技能规则的冲突**~~ → 导出器改为表达 `status`/`confidence`，技能规则同步改写。两边不再矛盾。
 
 ## C. 本轮（2026-09-23）已沉淀的工程基线
 
@@ -55,5 +55,14 @@
 - `tests/manifest-contract.test.js`：技能显式 id 与唯一性（修复"13 个 SKILL.md 撞同一 id"的回归）。
 - `.github/workflows/ci.yml`：三平台 `node --test tests/*.test.js`。
 - `main.js`：validate/collect 的声明改为从 manifest 派生，消除第二份 schema 字面量。
-- 全套 255 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。
+- 全套 268 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。
 - `.github/workflows/ci.yml` 的三平台 `node --test tests/*.test.js` **已全绿**：commit `bb03244` 的 run 中 macos-latest 9s、ubuntu-latest 5s、windows-latest 18s 全部 Success（总 21s）。证据是用户在 GitHub Actions 页面提供的运行截图，本机读不到（GitHub API 未认证返回 403）。
+
+## D. 本轮（2026-09-23）闭合的三项记录在案缺口
+
+- **C4 层级不可切**：新增导出格式 `c4`（`{focus, level}` 按 `parentId` 深度切 L1/L2/L3，元素类型按节点类型映射，`status`/`confidence` 与模型 id 保留在描述里，`parentId` 已表达的包含关系不再画 `contains` 边，模型没有该深度节点时以 `no_nodes_at_c4_level` 拒绝）；本仓库模型重塑为 6 container + 7 component，`actor:agent` 改为 `external:agent`（LLM 不是人，C4 `person` 会误导）；新增 `views/c4-l3-component.structurizr.dsl`，`c4-l1`/`c4-l2` 与 `current-state.drawio` 重新生成。
+- **Draw.io 丢弃 status/confidence**：非 `confirmed`/`high` 的事实带标签后缀、状态填充色（confirmed 蓝/inferred 琥珀/assumed 橙/unknown 灰）与虚线轮廓，规则写在 XML 注释里；`skills/drawio/SKILL.md` 规则改为"验证标记存活，不要手工加第二套"。顺带修掉预览预算 12000 字符会截断 20 节点/27 边模型的 drawio 导出——截断后的 XML 是被切断的文件，预算提高到 24000 且截断时明确"不可作交付物"。
+- **legacy 场景错配**：`fixtures/legacy-sparse-project/`（11 文件，无 README/docs/tests/CI/LICENSE/CODEOWNERS）+ `fixtures/legacy-sparse-model.json`（8 节点 / 4 边 / 5 unknowns）+ `tests/legacy-sparse-evidence.test.js`（5 条）+ `architecture/legacy-inventory-sparse.md`。
+- 新增 `docs/positioning-and-value.md`：定位与边界、六个使用场景（各写清"得到/得不到"）、六条可观察的工程提升、以及上述三项的改进方案与验证标准。
+- 版本 1.0.0 → 1.1.0；`node --test tests/*.test.js` 268/268。
+- **仍未闭合**：A13 后半段（右侧停靠视图标签页未被打开过）、1.1.0 `.piplug` 安装回归、A4 命令注销、采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断、Java/Maven/Gradle 依赖采集、实际保存/发布、L4 Code 层。逐条性质与状态见 `docs/positioning-and-value.md` 第五节。

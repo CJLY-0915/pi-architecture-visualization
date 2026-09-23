@@ -1,0 +1,6 @@
+# Batch schedule. One task, no owner field. operations edits this by hand and
+# nothing in the repo says which scheduler reads it.
+jobs:
+  - name: nightly-reconcile
+    command: python3 scripts/reconcile.py
+    schedule: "0 2 * * *"

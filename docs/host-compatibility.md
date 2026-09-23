@@ -6,7 +6,7 @@
 
 - 插件目录：`E:\Program\pi-desktop-plugin\architecture-visualization`
 - 插件 ID：`local.architecture-visualization`
-- 当前插件版本：`1.0.0`
+- 当前插件版本：`1.1.0`
 - 核验工具：PI-Desktop `PluginCheck`；宿主实现核验来源 `D:\Program Files\PI-Desktop\resources\app.asar`
 - 宿主版本：PI-Desktop **0.15.4**（`D:\\Program Files\\PI-Desktop\\resources\\app.asar` 内 `package.json`，用 asar 头偏移读取）；`engines.piDesktop` 已由虚假的 `>=0.1.0` 修正为 `>=0.15.4`
 - 生效形态：开发源即生效源，已通过插件页"加载本地插件"注册为 dev 插件（注册表 `source=dev`、`permissions` 含 `agent.extension`、`capabilities` 含 `agentExtension`，且只有一条条目）。原安装态副本 `C:\\Users\\DIY\\.pi-desktop\\plugins\\installed\\local.architecture-visualization` 已无注册表条目，经用户同意后删除，dev 源是唯一生效源。
@@ -83,7 +83,7 @@
 
 **已修正的宿主陷阱**：`contributes.skills` 只写路径时，宿主用 `skillIdFromPath` 取文件基名派生 id。本插件 13 个技能都叫 `SKILL.md`，于是共享同一个 id，只有首个注册成功，其余被审计为 `DUPLICATE` 静默跳过——即技能目录看似声明完整，实际只有 1/13 到达模型。现在每条声明都带显式 `id`（取所在目录名），并有 `tests/manifest-contract.test.js` 守护：显式 id 必须存在、唯一、等于目录名，并复现宿主派生规则会撞号这一事实。宿主自身的“导入扩展”脚手架也用哈希 id 规避同一问题（`app.asar` `out/main/index.js` 56613–56617）。
 
-入口通过共享的只读 `readModel` 适配器使用 `pi.fs.stat`（读取前 2 MiB 限制）和 `pi.fs.readText`；`fs.write` 未申请。健康入口对已解析但无效的 JSON（包括 `null`）保留验证诊断，其他分析仍严格拒绝无效模型。Node 内置测试覆盖模型校验、模拟宿主入口、只读采集器、查询/环路/影响预算、比较合同、P4 工具、P6 panel 白名单/交互与内存导出、P7 健康检查、无副作用快照规划的路径、参数、读取前大小、响应上限与生命周期回滚，以及 manifest 贡献合同（技能显式 id、agent 扩展声明）、注册面与 manifest 的双向一致（命令/工具/激活事件/面板白名单）、技能描述长度与路由表完整性、零依赖常驻规则的幂等性、采集响应预算（逐列表上限、240 KiB 字节上限、单条目超预算时终止）与 coverage 账本落盘；`npm test` 显式运行 `tests/*.test.js`（不能用 `node --test tests`，本机 Node 会把目录当模块加载），本轮为 255/255。`.github/workflows/ci.yml` 在三平台跑同一命令，commit `bb03244` 的 run 已三平台全绿。它们不替代上文已记录的真实 P4/P5 工具调用，也不能覆盖其余宿主生命周期场景。
+入口通过共享的只读 `readModel` 适配器使用 `pi.fs.stat`（读取前 2 MiB 限制）和 `pi.fs.readText`；`fs.write` 未申请。健康入口对已解析但无效的 JSON（包括 `null`）保留验证诊断，其他分析仍严格拒绝无效模型。Node 内置测试覆盖模型校验、模拟宿主入口、只读采集器、查询/环路/影响预算、比较合同、P4 工具、P6 panel 白名单/交互与内存导出、P7 健康检查、无副作用快照规划的路径、参数、读取前大小、响应上限与生命周期回滚，以及 manifest 贡献合同（技能显式 id、agent 扩展声明）、注册面与 manifest 的双向一致（命令/工具/激活事件/面板白名单）、技能描述长度与路由表完整性、零依赖常驻规则的幂等性、采集响应预算（逐列表上限、240 KiB 字节上限、单条目超预算时终止）与 coverage 账本落盘；`npm test` 显式运行 `tests/*.test.js`（不能用 `node --test tests`，本机 Node 会把目录当模块加载），本轮为 268/268。`.github/workflows/ci.yml` 在三平台跑同一命令，commit `bb03244` 的 run 已三平台全绿。它们不替代上文已记录的真实 P4/P5 工具调用，也不能覆盖其余宿主生命周期场景。
 
 ## 下一步核验顺序
 
@@ -91,4 +91,4 @@
 2. 验证命令、面板、技能和工具的最小闭环。
 3. 根据实际桥接结果冻结 `docs/host-compatibility.md` 的已支持 API 清单。
 4. 模型 schema 和内部工具 `architecture_validate` 已实现；在实际宿主核验读取、权限和工具调用，确认公开工具名的 `plugin_` 前缀不被插件代码重复添加。
-5. 已生成 1.0.0 的 `.piplug`（40 文件、sha256 `2b4cc667…`）；A10 的安装回归是针对 0.1.0 做的，1.0.0 新包需在干净环境重做安装→启用→升级→禁用→卸载，之后才可将分发包视为宿主 E2E 通过。
+5. 已生成 1.1.0 的 `.piplug`；A10 的安装回归是针对 0.1.0 做的，1.0.0/1.1.0 新包需在干净环境重做安装→启用→升级→禁用→卸载，之后才可将分发包视为宿主 E2E 通过。

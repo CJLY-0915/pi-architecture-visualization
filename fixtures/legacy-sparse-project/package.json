@@ -1,0 +1,9 @@
+{
+  "name": "legacy-order-service",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "lodash": "^3.10.1",
+    "request": "^2.34.0"
+  }
+}

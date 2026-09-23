@@ -53,14 +53,14 @@ C4 breaks when one diagram carries two levels of detail, or when the question is
 
 - PI-Desktop has **no Structurizr renderer**. Nothing in this plugin lays out a C4 diagram.
 - `architecture/views/<name>.structurizr.dsl` is a **text artifact**: a human reads it, or an external Structurizr-compatible tool renders it. Say so when you hand it over.
-- The workbench's in-panel export preview is what the user actually sees: an in-memory, read-only text preview of `structurizr`, `dot`, `mermaid`, `drawio`, `markdown`, `json`, `svg` and `html`. It renders nodes and edges only, labels them `type/status/confidence`, and flattens every node to `softwareSystem` — `parentId` chains and C4 levels are not drawn. It never saves, downloads or writes.
+- The workbench's in-panel export preview is what the user actually sees: an in-memory, read-only text preview of `structurizr`, `c4`, `dot`, `mermaid`, `drawio`, `markdown`, `json`, `svg` and `html`. `c4` is the level-aware one — it takes `{focus, level}`, filters the focus's `parentId` subtree at that depth, nests the elements, maps node types to C4 keywords and keeps `type/status/confidence` plus the model id on every element. `structurizr` stays the flattened variant: it renders nodes and edges only and flattens every node to `softwareSystem`. Neither saves, downloads or writes.
 - PNG is explicitly unsupported: no rendering stack exists in the current zero-dependency boundary, and a fake binary is never produced.
 - When the user must see the architecture in-panel, emit `.dot` or `.mmd` and route to `graphviz`; when they need real C4 rendering, the DSL goes to an external tool.
 
 ## Working order
 
 1. Start from `architecture/model.json`. With no model, build one with `system-modeler` first — C4 levels cannot be derived from an unshaped pile of files.
-2. Choose the level that answers the question and cut exactly one diagram for it.
+2. Choose the level that answers the question and cut exactly one diagram for it. In the panel, pick format `C4 层级（Structurizr DSL）` and set the focus node id plus L1/L2/L3; from the model side, the same cut is a depth filter over `parentId`.
 3. Derive the view from `nodes` and `edges`, keeping `status` and `confidence` on the labels: an inferred container stays labelled inferred.
 4. Write `architecture/views/<name>.structurizr.dsl` beside the model, never instead of it.
 5. Run `architecture_validate {path}` and clear every diagnostic before calling the view done.

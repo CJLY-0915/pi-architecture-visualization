@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "local.architecture-visualization",
   "name": "Architecture Visualization",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
   "i18n": {
     "zh-CN": {
