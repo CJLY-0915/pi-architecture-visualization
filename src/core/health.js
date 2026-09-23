@@ -1,6 +1,6 @@
 'use strict';
 
-// P7 architecture health check over one v1 model document.
+// Deterministic architecture health check over one v1 model document.
 //
 // The check is a pure, deterministic read of the document: it never reads
 // source files, artifacts or the clock, never writes anything and never throws.

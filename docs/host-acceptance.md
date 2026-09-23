@@ -14,14 +14,14 @@
 | A3 | agent 扩展注册 | 加载插件 | 无 `plugin.agentExtensions.skipped`；插件能力含 `agentExtension` | `~/.pi-desktop/plugins/registry.json` | ✅ |
 | A4 | 命令注册与注销 | 命令面板执行三条命令；卸载插件 | 三条命令可执行；卸载后不再出现 | 命令面板 + `plugin.log` | 🧪 `tests/registration-contract.test.js` |
 | A5 | Agent 工具注册与调用 | 在 Agent 模式调用 7 个工具 | 公开名带 `plugin_local_architecture_visualization_` 前缀，均返回结构化结果 | `logs/app/tool.log` 中 `plugin.tool.executed ok=true` | ✅ collect/validate/impact/health 本轮真实调用；query/compare/snapshot_plan 为历史调用 |
-| A6 | 面板核心只读路径 | 打开工作台，载入模型，跑查询/影响/比较/预览/健康 | 核心路径正常，PNG 明确报受限 | 用户面板确认（`PLAN.md:391`，安装态 r6） | ✅ 历史 |
+| A6 | 面板核心只读路径 | 打开工作台，载入模型，跑查询/影响/比较/预览/健康 | 核心路径正常，PNG 明确报受限 | 用户面板确认（`PLAN.md:391`） | ✅ 历史 |
 | A7 | 面板生命周期 | 重复打开/关闭面板；切项目；宿主销毁面板 | 无残留注册、无泄漏计时器、无重复面板 | 面板行为 + `plugin.log` | ✅ 用户本轮确认 |
 | A8 | 权限撤销行为 | 在插件页撤销 `agent.prompt.inject` 后提问 | 技能目录不再到达模型；恢复后重新到达 | 系统提示技能目录 + `plugin.skills.skipped PERMISSION_DENIED` | ✅ 用户本轮确认 |
 | A9 | 禁用/启用/卸载 | 禁用→启用→卸载插件 | 命令、工具、面板、订阅全部清理；无孤儿目录 | `plugin.log` + `plugins/installed` 目录 | ✅ 用户本轮确认 |
 | A10 | `.piplug` 安装回归 | 干净环境安装→启用→升级→禁用→卸载 | 全通过；权限扩大被要求重新审核 | 安装流程截图/日志 | ✅ 用户本轮确认 |
 | A11 | fs 符号链接逃逸 | 目标项目放置指向区外的符号链接 | 宿主拒绝或记录为覆盖缺口，不静默读取 | `architecture_collect` 的 `unresolved` | ✅ 用户本轮确认 |
 | A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
-| A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ⬜ 前半段已确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）。后半段仍开放：右侧工作面板里的标签页尚未被打开过一次 |
+| A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ◐ 前半段已确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）。后半段已推进：用户已在真实宿主打开该标签页并看到界面（2026-09-23，用户证言）；视图内的读取与查询路径尚未逐项确认 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -34,7 +34,7 @@
 | system-modeler | 这个插件工作区的系统结构是什么 | `architecture/model.json` + 一个视图 | ✅ `model.json`(17 节点) + `views/current-state.dot`，validate ok |
 | evolution-planner | 要做得更完善还差什么 | `architecture/current-vs-target.md` | ✅ 含 11 差距 + 10 切片 + decision 伴生文档 |
 | dependency-impact-analyzer | 改 `src/core` 会影响什么 | `architecture/views/blast-radius-<change>.dot` | ✅ `blast-radius-module-core-model.dot`，impact ok:true，截断原因入图 |
-| architecture-health | 这个模型健康吗 | health 发现清单 | ✅ ok:true、0 errors、7 findings（5 unknown + 2 low confidence）；Phase 1 刷新模型后复跑为 3 findings（3 declared unknown）、0 errors |
+| architecture-health | 这个模型健康吗 | health 发现清单 | ✅ ok:true、0 errors、7 findings（5 unknown + 2 low confidence）；模型刷新后复跑为 3 findings（3 declared unknown）、0 errors |
 | flow-visualizer | 一次"校验模型"请求经过哪些节点 | 单条路径的 `.dot`/`.mmd` | ✅ `views/flow-validate-request.dot`。`architecture_query mode=paths` 得 `actor:agent →calls→ module:host-adapters →reads→ datastore:target-model`，**两条边均 inferred/medium**，无 confirmed 运行时证据；3 个缺口画成 unknown 并附定案检查 |
 | deployment-topology-analyzer | 它跑在哪里、如何发布 | 容器/服务清单 | ✅ `deployment-inventory.md`。可部署单元按声明确认 4 行；**本仓库无 compose/K8s/Terraform/Dockerfile**，唯一 `docker-compose.yml` 是 `fixtures/` 测试夹具，按技能规则明确排除；runtime 一节 5 项全 unknown 各附定案检查 |
 | risk-quality-reviewer | 这个架构有什么风险 | 排序风险表，每条带文件路径 | ✅ `risk-register.md`。6 条风险各带 8 字段（含 acceptance）；排序用 `architecture_impact`：`module:core-model` 13 节点 depth 5 **截断**、`module:contract` 14 节点 depth 4 未截断；另附 3 条技术债与 3 项覆盖缺口 |
@@ -65,4 +65,4 @@
 - **legacy 场景错配**：`fixtures/legacy-sparse-project/`（11 文件，无 README/docs/tests/CI/LICENSE/CODEOWNERS）+ `fixtures/legacy-sparse-model.json`（8 节点 / 4 边 / 5 unknowns）+ `tests/legacy-sparse-evidence.test.js`（5 条）+ `architecture/legacy-inventory-sparse.md`。
 - 新增 `docs/positioning-and-value.md`：定位与边界、六个使用场景（各写清"得到/得不到"）、六条可观察的工程提升、以及上述三项的改进方案与验证标准。
 - 版本 1.0.0 → 1.1.0；`node --test tests/*.test.js` 268/268。
-- **仍未闭合**：A13 后半段（右侧停靠视图标签页未被打开过）、1.1.0 `.piplug` 安装回归、A4 命令注销、采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断、Java/Maven/Gradle 依赖采集、实际保存/发布、L4 Code 层。逐条性质与状态见 `docs/positioning-and-value.md` 第五节。
+- **仍未闭合**：A13 后半段（视图已打开并渲染，视图内读取/查询路径待逐项确认）、1.1.0 `.piplug` 安装回归、A4 命令注销、采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断、Java/Maven/Gradle 依赖采集、实际保存/发布、L4 Code 层。逐条性质与状态见 `docs/positioning-and-value.md` 第五节。

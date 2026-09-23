@@ -28,7 +28,7 @@ function hostWith(value = JSON.stringify(fixture)) {
 
 const queryArgs = { path: 'architecture/model.json', mode: 'neighbours', targets: ['container.api'] };
 
-test('P4 tool names, risk and schemas match the manifest exactly', () => {
+test('tool names, risk and schemas match the manifest exactly', () => {
   const { tools } = hostWith();
   for (const [name, tool] of Object.entries(tools)) {
     const declared = manifest.contributes.agentTools.find((entry) => entry.name === name);

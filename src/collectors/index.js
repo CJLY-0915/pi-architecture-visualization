@@ -24,7 +24,7 @@ const infra = require('./infra');
 // cannot model at all becomes `unsupported_input`. Coverage gaps are reported
 // through `coverage.complete` rather than silently presenting a partial scan as
 // a complete one. `unknowns` stays empty in v1: it holds open architectural
-// questions, not scan gaps, and P3 has no source for those yet.
+// questions, not scan gaps, and the collector has no source for those yet.
 
 const ADAPTER_IDS = Object.freeze(['js-ts', 'manifests', 'infra']);
 const ADAPTER_FACTORIES = Object.freeze({

@@ -4,7 +4,7 @@ const { compareStrings } = require('./compare-strings');
 
 // Deterministic graph index over a v1 architecture model.
 //
-// The index is the single traversal foundation for every P4 query: filters,
+// The index is the single traversal foundation for every graph query: filters,
 // neighbourhoods, paths, cycles and impact all read adjacency from here, so
 // ordering rules and dangling-reference handling live in exactly one place.
 //

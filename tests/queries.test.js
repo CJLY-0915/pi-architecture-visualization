@@ -383,7 +383,7 @@ test('comparison rejects duplicate IDs without claiming validation', () => {
   assert.equal(Object.prototype.hasOwnProperty.call(result, 'validation'), false);
 });
 
-test('error codes added for P4 are registered', () => {
+test('error codes added for query and compare are registered', () => {
   assert.equal(CODES.CHANGE_SOURCE_UNAVAILABLE, 'change_source_unavailable');
   assert.equal(isKnownCode(CODES.CHANGE_SOURCE_UNAVAILABLE), true);
 });

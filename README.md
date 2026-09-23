@@ -4,7 +4,7 @@ PI-Desktop 插件，用于理解、建模、评审和演进复杂软件架构。
 
 仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main` 分支；推送到 `main` 或开 PR 会触发 `.github/workflows/ci.yml`，在 ubuntu / windows / macOS 三个平台跑 `node --test tests/*.test.js`）。
 
-当前已实现 P2 模型合同与校验器、P3 确定性只读采集、P4 查询/影响/比较、P5 无副作用快照规划、P6 只读工作台与内存导出预览，以及 P7 模型健康检查。实际安全发布仍受宿主原子发布能力缺失阻塞，详见 [PLAN.md](./PLAN.md)。版本 **1.1.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；定位、使用场景与实际价值见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
+当前已实现：模型合同与校验器、确定性只读采集、查询/影响/比较、无副作用快照规划、只读工作台与内存导出预览、架构健康检查。实际安全发布仍受宿主原子发布能力缺失阻塞，详见 [PLAN.md](./PLAN.md)。版本 **1.1.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；定位、使用场景与实际价值见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
 
 ## 开发
 
@@ -14,7 +14,7 @@ PI-Desktop 插件，用于理解、建模、评审和演进复杂软件架构。
 
 Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixtures/valid-minimal-model.json" }`。命令面板的 Validate Model 默认读取 `architecture/model.json`。校验只检查结构与引用，不读取证据源文件、不确认事实真实性、不写入项目。
 
-模型的 `state` 区分 `current/target/runtime`，`status` 区分 `confirmed/inferred/assumed/unknown`。确认项必须引用证据，确认的运行观测还必须引用 `runtime` 类型证据。ID 在各集合内唯一，引用按集合解析；跨集合允许同名。`views/findings/decisions/migrationSlices/unknowns` 当前只冻结对象与 ID 约束，详细合同留待对应阶段。
+模型的 `state` 区分 `current/target/runtime`，`status` 区分 `confirmed/inferred/assumed/unknown`。确认项必须引用证据，确认的运行观测还必须引用 `runtime` 类型证据。ID 在各集合内唯一，引用按集合解析；跨集合允许同名。`views/findings/decisions/migrationSlices/unknowns` 当前只冻结对象与 ID 约束，详细合同尚未冻结。
 
 模型读取在宿主 `fs.stat` 返回尺寸后、`fs.readText` 之前拒绝超过 2 MiB 的文件；读取后仍限制 2 Mi 字符。工作台的本地 browser preview 使用受控 bridge 模拟，不能替代真实 PI-Desktop panel E2E；已核验范围见 [宿主兼容性记录](./docs/host-compatibility.md)。
 
@@ -44,7 +44,7 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 - 敏感路径（`.env*`、`.ssh/`、`.aws/`、`.git/`、`*.pem`、`*.key`、`id_rsa*`、`credentials*`、`secrets*`、`.npmrc`）和不安全路径（绝对路径、盘符、反斜杠、`.`/`..` 段）从不调用 `readText`。
 - `coverage.complete` 只有在扫描跑完且未触发 `maxFiles`、`totalCharBudget` 或 `timeoutMs` 时才为 `true`。达到任一上限时 `complete` 为 `false` 而 `ok` 仍为 `true`：截断既不算失败，也不会被当成完整结果。选项非法、无法列出文件、整个范围都被忽略（`no_files_in_scope`）或来源自带任何诊断时 `complete` 同样为 `false`，因为此时没有任何扫描结果可以声称完整。单个文件读失败或超 `maxFileChars` 只记 `file_too_large`/`source_read_failed` 诊断并计入 `filesSkipped`，不因此把整次扫描判为不完整——扣留规模看 `filesSkipped`，不要只读 `complete`。
 - `filesListed` 计入源返回的每一条路径（含按策略忽略的构建产物与二进制）；`filesScanned` 是实际读过的；`filesSkipped` 是列出之后被扣留的（敏感、不安全、读失败、超限）。因此 `filesListed = filesScanned + filesSkipped + 被策略忽略数`，只有什么都没被忽略时前三者才相等。这三个计数与 `complete` 一起写入 `model.json`，因为只读文件本身的消费者也要能看出有文件被扣留。`ok` 为 `false` 仅表示模型不可用（选项非法、无法列出文件、模型未通过校验）。
-- `unknowns` 在采集阶段保持空数组：它承载待回答的架构问题而非扫描缺口，扫描缺口由 `coverage` 与 `unresolved` 表达，持久化到 `model.json` 留待 P5。
+- `unknowns` 在采集阶段保持空数组：它承载待回答的架构问题而非扫描缺口，扫描缺口由 `coverage` 与 `unresolved` 表达，持久化到 `model.json` 属于尚未实现的保存功能。
 
 ### 宿主接线
 
@@ -85,9 +85,9 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 - 宿主入口最大深度 32、最大节点预算 2000、最多 100 环、最多 100000 个候选边步骤（`maxSteps`）；路径搜索的节点预算也约束候选状态，可能在完成所有路径前停止。被截断的查询显式返回停止原因，不能解释为“没有更多关系”。
 - 默认时钟固定为零以保证可重复；显式传 `maxTimeMs`（1–1000）时，宿主边界才注入真实时钟，时间截断结果不保证逐字节一致。
 - 单模型在读取前限制 2 MiB；解码后仍限制 2 Mi 字符。结果上限为 240 KiB（低于宿主 256 KiB）。超大结果返回 `RESULT_TOO_LARGE`，不丢弃数据后伪称完整。应缩小查询或快照范围。
-- P4 的查询、影响和比较工具已在真实宿主调用；注册、回滚和卸载也有本地模拟测试。新快照规划工具仍需完整插件重载后做真实调用验证，完整状态见 [宿主兼容性记录](./docs/host-compatibility.md)。
+- 查询、影响和比较工具已在真实宿主调用；注册、回滚和卸载也有本地模拟测试。新快照规划工具仍需完整插件重载后做真实调用验证，完整状态见 [宿主兼容性记录](./docs/host-compatibility.md)。
 
-## P6 工作台、受限分析与内存导出
+## 只读工作台、受限分析与内存导出
 
 同一个只读工作台有两个入口，共用 `renderer/index.html` 与同一套 bridge：
 
@@ -102,20 +102,20 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 - 内存预览支持 Structurizr DSL、C4 层级 DSL、DOT、Mermaid、Draw.io XML、Markdown、JSON、SVG 和离线 HTML。`c4` 按 `parentId` 链切 L1/L2/L3，元素带 `type/status/confidence` 与模型 id；Draw.io 对非 `confirmed`/`high` 的事实带标签后缀、状态填充色与虚线轮廓。每个预览带 schemaVersion、范围、revision、生成时间、覆盖状态、图例和限制；不下载、不保存、不写工作区。PNG 明确报告为受限：当前零依赖安全边界没有图形渲染栈，因此不生成或伪造 PNG。
 - 比较要求用户输入两个明确的工作区相对路径；影响要求明确稳定节点 ID 或已声明证据路径。面板不会猜测 Git、分支、变更集或目标。
 
-受控浏览器预览已在真实 `fixtures/valid-minimal-model.json` 上跑通模型读取、节点详情、待厘清项、邻居查询、上游影响、同文件比较、Mermaid 内存预览与健康检查，并实际展示覆盖不完整、证据缺失、新鲜度未知和传播停止原因。随后用户已在已安装 r6 的真实 PI-Desktop 面板中确认上述核心只读路径与 PNG 受限提示均正常。重复打开/关闭/宿主销毁、权限拒绝和超限返回形状未单独演练，仍保留为宿主兼容性验证范围。右侧停靠视图本身尚未在真实宿主中打开过一次（需要 `ui.view` 授权），因此它记入 [host-acceptance.md](./docs/host-acceptance.md) 的未验证项，不当成已验证。
+受控浏览器预览已在真实 `fixtures/valid-minimal-model.json` 上跑通模型读取、节点详情、待厘清项、邻居查询、上游影响、同文件比较、Mermaid 内存预览与健康检查，并实际展示覆盖不完整、证据缺失、新鲜度未知和传播停止原因。随后用户已在真实 PI-Desktop 浮动面板中确认上述核心只读路径与 PNG 受限提示均正常。重复打开/关闭/宿主销毁、权限拒绝和超限返回形状未单独演练，仍保留为宿主兼容性验证范围。右侧停靠视图已由用户在真实宿主打开并渲染（`ui.view` 授权经插件页重载生效）；视图内的读取与查询路径尚未逐项确认，因此它记入 [host-acceptance.md](./docs/host-acceptance.md) 的未验证项，不当成已验证。
 
-## P7 架构健康检查
+## 架构健康检查
 
 低风险 Agent 工具 `architecture_health` 接受 `{ "path": "architecture/model.json" }`，在安全读取并解析 JSON 后运行 v1 校验与确定性健康检查。对可解析但不合规的模型，它仍返回稳定的合同/冲突诊断（`ok:false`）；无效路径、读取失败、超限或损坏 JSON 则明确拒绝，且不会写入文件。
 
 - 合同违规与模型内显式结构冲突直接复用 `validateModel` 的稳定诊断；不会再发明第二套结构规则。
 - 对模型自身事实报告 `coverage.complete:false`、已声明 `unknowns`、节点/边没有任何 `evidenceIds`、以及 `low`/`unknown` 置信度。
 - 输出总会同时声明 `sourceContentVerified:false`、`evidenceFreshness:"unknown"` 和 `artifactFreshness:"unknown"`。即使模型带 revision、fingerprint 或 stale 字段，健康检查也不会据此推断源码、证据或产物新鲜度。
-- P7 的健康核心、低风险工具和面板通道均有 Node 内置回归；本地模拟与受控浏览器预览不等同真实 PI-Desktop panel 或 Agent E2E，状态见宿主兼容性记录。
+- 健康核心、低风险工具和面板通道均有 Node 内置回归；本地模拟与受控浏览器预览不等同真实 PI-Desktop panel 或 Agent E2E，状态见宿主兼容性记录。
 
-真实宿主 Agent E2E 已调用公开工具 `plugin_local_architecture_visualization_architecture_health` 读取 `fixtures/valid-minimal-model.json`：返回 `ok:true`、5 个节点/3 条边/3 条证据的已校验摘要，以及 8 条明确范围内的健康发现；仍明确 `sourceContentVerified:false`、证据和产物新鲜度为 `unknown`。这验证了 P7 Agent 入口，不替代真实 panel E2E。
+真实宿主 Agent E2E 已调用公开工具 `plugin_local_architecture_visualization_architecture_health` 读取 `fixtures/valid-minimal-model.json`：返回 `ok:true`、5 个节点/3 条边/3 条证据的已校验摘要，以及 8 条明确范围内的健康发现；仍明确 `sourceContentVerified:false`、证据和产物新鲜度为 `unknown`。这验证了健康检查的 Agent 入口，不替代真实 panel E2E。
 
-## P5 安全快照规划（不写入）
+## 安全快照规划（不写入）
 
 `architecture_snapshot_plan` 读取并校验已有模型后，返回规范化 JSON、SHA-256 指纹以及唯一可选路径：
 
@@ -129,7 +129,7 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 
 ## 本轮验证
 
-- `npm test`：268 通过，0 失败；脚本固定为 `node --test tests/*.test.js`（不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。覆盖受控 `pluginBridge` 面板交互、固定通道白名单、内存导出边界（含 C4 三层切分、Draw.io 确定性标记、截断即不可交付）、P7 无效模型诊断回归、采集响应预算与 coverage 账本落盘，manifest 贡献合同（13 条技能显式 id 与唯一性、agent 扩展声明）、注册面与 manifest 的双向一致、技能描述长度与路由表完整性、零依赖常驻规则的幂等性、`pom.xml`/`build.gradle` 被显式报为未建模而非静默忽略、稀疏证据遗留系统上的未知项优先路径，以及停靠视图的宿主合同（id 形状、唯一性、entry 在插件内且随包发布、icon 取自宿主清单、`ui.view` 权限、drag 区只对浮动面板生效）。
+- `npm test`：268 通过，0 失败；脚本固定为 `node --test tests/*.test.js`（不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。覆盖受控 `pluginBridge` 面板交互、固定通道白名单、内存导出边界（含 C4 三层切分、Draw.io 确定性标记、截断即不可交付）、无效模型诊断回归、采集响应预算与 coverage 账本落盘，manifest 贡献合同（13 条技能显式 id 与唯一性、agent 扩展声明）、注册面与 manifest 的双向一致、技能描述长度与路由表完整性、零依赖常驻规则的幂等性、`pom.xml`/`build.gradle` 被显式报为未建模而非静默忽略、稀疏证据遗留系统上的未知项优先路径，以及停靠视图的宿主合同（id 形状、唯一性、entry 在插件内且随包发布、icon 取自宿主清单、`ui.view` 权限、drag 区只对浮动面板生效）。
 - `PluginCheck`：当前工作区无错误通过；**仅复制运行时集合**（`main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`）的干净镜像经同一官方校验为 **40 个文件**（含 `src/core/compare-strings.js`）。该集合由 `tests/package-scope.test.js` 断言，并与 `docs/host-compatibility.md` 记录一致。两次检查均仅提示 `agent.prompt.inject`、`agent.tool.register` 需用户显式授予的高风险权限；注册表中这两项与 `agent.extension` 均已显式授予。
 - `PluginPack`：已生成并审计 `dist/` 中的最终清洁交付包。因当前宿主打包器不排除 `.pi/` 或 `Temp/`，该包由不含会话目标文件与临时镜像的干净镜像经官方打包器生成；包内无 `.pi`、缓存、临时目录、凭据形文件、`node_modules`、网络权限或远程 CDN。分发版走“已安装插件”路径，没有 dev 插件的权限审查 UI，装机时权限清单需在安装流程中呈现。
 

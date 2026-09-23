@@ -562,7 +562,7 @@ test('an unusable workspace payload never blocks a readable project', async () =
   }
 });
 
-test('last P4 registration failure rolls back all prior resources', async () => {
+test('last registration failure rolls back all prior resources', async () => {
   const host = createHost(simpleTree(), {});
   global.pi.agent.registerTool = async (tool) => {
     if (tool.name === 'architecture_compare') throw new Error('last registration failed');
