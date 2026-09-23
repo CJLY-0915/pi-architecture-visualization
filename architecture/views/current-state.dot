@@ -1,0 +1,78 @@
+digraph current_state {
+  rankdir=LR;
+  label="Architecture Visualization — current state (L1/L2)\n派生自 architecture/model.json @ f410fb0；实线=confirmed，虚线=inferred";
+  labelloc="t";
+  fontname="Segoe UI";
+  fontsize=12;
+  node [shape=box, fontname="Segoe UI", fontsize=10];
+  edge [fontname="Segoe UI", fontsize=9];
+
+  subgraph cluster_plugin {
+    label="system:architecture-visualization（PI-Desktop 插件，只读）";
+    style="rounded";
+    color="#4a5568";
+
+    container_plugin_entry [label="container:plugin-entry\nmain.js 入口（命令/工具注册）"];
+    container_agent_extension [label="container:agent-extension\nworkflow-rule.mjs 常驻路由规则"];
+    container_panel [label="container:panel\nrenderer 只读工作台"];
+    module_core [label="module:core-model\nsrc/core 纯函数核心"];
+    module_collectors [label="module:collectors\nsrc/collectors 只读采集"];
+    module_host [label="module:host-adapters\nsrc/host 宿主适配"];
+    module_contract [label="module:contract\nmanifest + schemas"];
+    module_skills [label="module:skills\n13 个架构技能"];
+    module_tests [label="module:tests\n223 用例"];
+    module_docs [label="module:docs\ndocs/README/PLAN"];
+  }
+
+  external_host [label="external:pi-desktop-host\nPI-Desktop 0.15.4\n(pi.fs / panel bridge / 注册表)", shape=box, style="rounded,filled", fillcolor="#edf2f7"];
+  external_sidecar [label="external:agent-sidecar\njiti 加载扩展\nbefore_agent_start", shape=box, style="rounded,filled", fillcolor="#edf2f7"];
+  external_node [label="external:node-builtins\nnode:test/fs/path/crypto", shape=box, style="rounded,filled", fillcolor="#edf2f7"];
+  datastore_model [label="datastore:target-model\n目标项目 architecture/model.json\n（插件只读，从不写）", shape=cylinder, style="filled", fillcolor="#fffaf0"];
+  actor_agent [label="actor:agent\nLLM Agent", shape=ellipse, style="filled", fillcolor="#f0fff4"];
+  actor_dev [label="actor:developer\n使用者", shape=ellipse, style="filled", fillcolor="#f0fff4"];
+
+  // 插件内部：入口把三层的实现接到宿主 API 上
+  container_plugin_entry -> module_host [label="depends_on", style=solid];
+  container_plugin_entry -> module_collectors [label="depends_on", style=solid];
+  container_plugin_entry -> module_core [label="depends_on", style=solid];
+  module_host -> module_core [label="depends_on", style=solid];
+  module_collectors -> module_core [label="depends_on", style=solid];
+
+  // 测试只依赖实现，不反向依赖
+  module_tests -> module_core [label="depends_on", style=solid];
+  module_tests -> module_host [label="depends_on", style=solid];
+  module_tests -> module_collectors [label="depends_on", style=solid];
+
+  // 与宿主的边界
+  container_plugin_entry -> external_host [label="depends_on", style=solid];
+  container_panel -> external_host [label="calls (pluginBridge)", style=solid];
+  external_sidecar -> container_agent_extension [label="calls (factory + handler)", style=solid];
+  container_agent_extension -> module_skills [label="depends_on (点名 Architecture Explore)", style=dashed];
+  external_host -> module_contract [label="reads (manifest)", style=dashed];
+  external_host -> module_skills [label="publishes (技能目录)", style=dashed];
+  actor_agent -> module_skills [label="subscribes", style=dashed];
+  actor_agent -> module_host [label="calls (agent 工具)", style=dashed];
+  actor_dev -> container_panel [label="calls", style=dashed];
+
+  // 数据边界：只有读，没有写
+  module_host -> datastore_model [label="reads (pi.fs.stat/readText)", style=dashed];
+  module_collectors -> datastore_model [label="reads (注入的文件源)", style=dashed];
+
+  // 未闭合项：刻意画成缺口，不画成通路
+  subgraph cluster_unknowns {
+    label="unknowns（未在真实宿主验证）";
+    style="dashed";
+    color="#c05621";
+    fontcolor="#c05621";
+    u1 [label="unknown:panel-lifecycle\n重复打开/关闭/销毁", shape=note, style="filled", fillcolor="#fffaf0"];
+    u2 [label="unknown:skill-body-load\n场景技能正文按需加载", shape=note, style="filled", fillcolor="#fffaf0"];
+    u3 [label="unknown:fs-symlink-escape\n符号链接 containment", shape=note, style="filled", fillcolor="#fffaf0"];
+    u4 [label="unknown:piplug-install-regression\n安装/升级/卸载回归", shape=note, style="filled", fillcolor="#fffaf0"];
+    u5 [label="unknown:target-model-path\n目标模型实际路径与存在性", shape=note, style="filled", fillcolor="#fffaf0"];
+    u1 -> u2 -> u3 -> u4 -> u5 [style=invis];
+  }
+
+  container_panel -> u1 [style=invis];
+  module_skills -> u2 [style=invis];
+  module_host -> u5 [style=invis];
+}

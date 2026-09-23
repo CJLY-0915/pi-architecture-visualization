@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: node --test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Node expands the glob itself, so the same command works under bash and
+      # under cmd on Windows. `node --test tests` is not usable here: this
+      # project's Node treats the bare directory as a module to load.
+      - name: unit and contract tests
+        run: node --test tests/*.test.js

@@ -1,5 +1,5 @@
 const { readModel, isSafeRelativePath } = require('./src/host/read-model.js');
-const { createAnalysisTools, executeAnalysis, ANALYSIS_TOOL_NAMES, boundResponse } = require('./src/host/analysis-tools.js');
+const { createAnalysisTools, executeAnalysis, ANALYSIS_TOOL_NAMES, boundResponse, toolDefinition } = require('./src/host/analysis-tools.js');
 const { SNAPSHOT_PLAN_TOOL, createSnapshotPlanTool } = require('./src/host/snapshot-plan-tool.js');
 const { createHealthTool, executeHealth, HEALTH_TOOL } = require('./src/host/health-tool.js');
 const { exportPreview } = require('./src/core/export-preview.js');
@@ -8,14 +8,15 @@ const { createHostSource } = require('./src/host/fs-source.js');
 
 const VALIDATE_TOOL = 'architecture_validate';
 const COLLECT_TOOL = 'architecture_collect';
-const VALIDATE_SCHEMA = { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] };
-const COLLECT_SCHEMA = {
-  type: 'object',
-  properties: {
-    scopeRoots: { type: 'array', items: { type: 'string' } },
-    maxFiles: { type: 'integer' },
-  },
-};
+
+// The manifest is the single declaration source for every agent tool: name,
+// description, risk and schema all come from there, so the panel-facing docs and
+// the runtime registration cannot drift apart.
+function toolDeclaration(name) {
+  const definition = toolDefinition(name);
+  if (!definition) throw new Error(`Missing tool declaration: ${name}`);
+  return definition;
+}
 const PANEL_ANALYSIS_CHANNELS = Object.freeze({
   'architecture.query': 'architecture_query',
   'architecture.impact': 'architecture_impact',
@@ -193,22 +194,10 @@ async function onLoad() {
     });
     cleanup.push(() => pi.commands.unregister('architecture-visualization.collect'));
 
-    await pi.agent.registerTool({
-      name: VALIDATE_TOOL,
-      description: 'Validate model structure and evidence references; does not verify source file contents.',
-      risk: 'low',
-      schema: VALIDATE_SCHEMA,
-      execute: validatePath,
-    });
+    await pi.agent.registerTool({ ...toolDeclaration(VALIDATE_TOOL), execute: validatePath });
     cleanup.push(() => pi.agent.unregisterTool(VALIDATE_TOOL));
 
-    await pi.agent.registerTool({
-      name: COLLECT_TOOL,
-      description: 'Read-only scan of the open workspace that returns an evidence-backed current-state model, its coverage and its unresolved items. It writes nothing.',
-      risk: 'low',
-      schema: COLLECT_SCHEMA,
-      execute: collectCurrentState,
-    });
+    await pi.agent.registerTool({ ...toolDeclaration(COLLECT_TOOL), execute: collectCurrentState });
     cleanup.push(() => pi.agent.unregisterTool(COLLECT_TOOL));
 
     for (const tool of createAnalysisTools(readHost())) {
@@ -261,4 +250,4 @@ async function onPanelInvoke(channel, payload) {
   if (name === 'architecture_health') return executeHealth(readHost(), payload);
   return executeAnalysis(readHost(), name, payload);
 }
-module.exports = { onLoad, onUnload, onPanelInvoke };
+module.exports = { onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS };

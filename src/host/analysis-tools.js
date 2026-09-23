@@ -114,4 +114,4 @@ function createAnalysisTools(host) {
   });
 }
 
-module.exports = { createAnalysisTools, executeAnalysis, ANALYSIS_TOOL_NAMES, boundResponse, MAX_RESPONSE_BYTES };
+module.exports = { createAnalysisTools, executeAnalysis, ANALYSIS_TOOL_NAMES, boundResponse, MAX_RESPONSE_BYTES, toolDefinition: analysisDefinition };
