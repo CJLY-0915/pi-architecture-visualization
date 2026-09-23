@@ -323,7 +323,7 @@ fixtures/
 
 接线已验证：在本机真实宿主中对 `src/core` 实际调用 `architecture_collect`，得到 2 个节点、1 条 `depends_on` 边、3 条证据，`validation.valid=true`、`coverage.complete=true`、无未解析项。同时发现并修复：`pi.workspace.get()` 描述的是窗口可见文件夹，而 `pi.fs` 按调用会话所属项目解析（宿主 ADR 0016），二者可能不一致——早期以 `workspace.get().path` 为前置守卫会导致真实可读项目被误判为 `NO_WORKSPACE`，现改为由遍历结果判定。多根项目中非主根不可达，已作为覆盖缺口上报而非静默缺失。
 
-已覆盖：同一输入逐字节相同（含 listFiles 顺序打乱）、动态导入与非字面量 require 产出 `unsupported_input` 且不生成边、相对说明符解析失败产出 `unresolved_reference`、maxFiles 截断与 totalCharBudget/timeoutMs 受控停止、单文件超限跳过但继续分析、敏感与不安全路径从不调用 `readText`、listFiles 抛异常与单文件读取失败不中断、非法选项在接触 source 前失败、模型在所有失败场景下仍通过 `validateModel`、以及未解析项与诊断的稳定排序。
+已覆盖：同一输入逐字节相同（含 listFiles 顺序打乱）、动态导入与非字面量 require 产出 `unsupported_input` 且不生成边、相对说明符解析失败产出 `unresolved_reference`、maxFiles 截断与 totalCharBudget/timeoutMs 受控停止、单文件超限跳过但继续分析、敏感与不安全路径从不调用 `readText`、listFiles 抛异常与单文件读取失败不中断、非法选项在接触 source 前失败、模型在所有失败场景下仍通过 `validateModel`、以及未解析项与诊断的稳定排序。超大输入另有一次 679 文件合成仓库实测：默认 `maxFiles` 下读出 499 个并报 `file_limit_reached`、`complete=false`，`maxFiles=5000` 下读出 677 个且 `complete=true`，3 MB 文件在读取前被拒为 `file_too_large` 并计入 `filesSkipped`，重复运行整个模型 JSON 的 SHA-256 相同；采集响应的 240 KiB 上限与逐列表截断由 `tests/response-budget.test.js` 覆盖。数字与结论见 `docs/host-compatibility.md` 的「规模与响应预算实测」。
 
 未完成/限制：`pom.xml` 与 `build.gradle` 适配器已实现但合成项目只覆盖到 `go.mod`/`requirements.txt`/`pyproject.toml`；`unknowns` 保持空数组，未解析项的持久化留待 P5；三个适配器均为面向行的启发式，各自的已知限制写在文件头注释中。宿主已对 `.git`、`node_modules`、`.venv`、`__pycache__` 及凭据路径做了屏蔽，符号链接 containment 也由宿主 `fs` 层负责，采集器不重复实现。软链越界未被独立验证；宿主 `fs.list` 返回的条目是按其自身 `statSync` 结果生成的，未检测重解析点逃逸。P1 的实际宿主加载、权限授予与卸载 E2E 仍未完成，命令与工具的运行仅经过一次真实调用验证。
 
