@@ -35,16 +35,18 @@
 | evolution-planner | 要做得更完善还差什么 | `architecture/current-vs-target.md` | ✅ 含 11 差距 + 10 切片 + decision 伴生文档 |
 | dependency-impact-analyzer | 改 `src/core` 会影响什么 | `architecture/views/blast-radius-<change>.dot` | ✅ `blast-radius-module-core-model.dot`，impact ok:true，截断原因入图 |
 | architecture-health | 这个模型健康吗 | health 发现清单 | ✅ ok:true、0 errors、7 findings（5 unknown + 2 low confidence） |
-| flow-visualizer | 一次"校验模型"请求经过哪些节点 | 单条路径的 `.dot`/`.mmd` | ⬜ |
-| deployment-topology-analyzer | 它跑在哪里、如何发布 | 容器/服务清单 | ⬜ |
-| risk-quality-reviewer | 这个架构有什么风险 | 排序风险表，每条带文件路径 | ⬜ |
-| legacy-system-visualizer | （换到无文档仓库）这系统是什么 | unknowns-first 清单 | ⬜ |
-| architecture-communicator | 给管理层讲清楚这个插件 | 单一受众视图 | ⬜ |
-| c4model | 出一张 C4 图 | L1/L2 C4 视图 | ⬜ |
-| graphviz | 出一张关系密度高的 DOT | `.dot` 源 | ⬜ |
-| drawio | 给我可编辑的 .drawio | `.drawio` XML | ⬜ |
+| flow-visualizer | 一次"校验模型"请求经过哪些节点 | 单条路径的 `.dot`/`.mmd` | ✅ `views/flow-validate-request.dot`。`architecture_query mode=paths` 得 `actor:agent →calls→ module:host-adapters →reads→ datastore:target-model`，**两条边均 inferred/medium**，无 confirmed 运行时证据；3 个缺口画成 unknown 并附定案检查 |
+| deployment-topology-analyzer | 它跑在哪里、如何发布 | 容器/服务清单 | ✅ `deployment-inventory.md`。可部署单元按声明确认 4 行；**本仓库无 compose/K8s/Terraform/Dockerfile**，唯一 `docker-compose.yml` 是 `fixtures/` 测试夹具，按技能规则明确排除；runtime 一节 5 项全 unknown 各附定案检查 |
+| risk-quality-reviewer | 这个架构有什么风险 | 排序风险表，每条带文件路径 | ✅ `risk-register.md`。6 条风险各带 8 字段（含 acceptance）；排序用 `architecture_impact`：`module:core-model` 13 节点 depth 5 **截断**、`module:contract` 14 节点 depth 4 未截断；另附 3 条技术债与 3 项覆盖缺口 |
+| legacy-system-visualizer | （换到无文档仓库）这系统是什么 | unknowns-first 清单 | ✅ **场景错配已如实记录**：`legacy-inventory.md`。本仓库文档密度高于典型遗留系统，故 unknown 分"未经运行时证实"与"无主"两类；10 条 unknown 各带责任角色与定案步骤；聚类 5 组 + 4 个绑定五字段的切片 |
+| architecture-communicator | 给管理层讲清楚这个插件 | 单一受众视图 | ✅ `views/executive.dot` + `communication-notes.md`。受众=决定是否继续投入者，决策写成一句；保留稳定 id 与出处簇；5 条"翻译时没有洗掉的约束"显式列出（含 A7–A12 的证据性质是用户证言） |
+| c4model | 出一张 C4 图 | L1/L2 C4 视图 | ✅ `views/c4-l1-system-context.structurizr.dsl` + `views/c4-l2-container.structurizr.dsl` + `c4-fit-notes.md`。**发现模型不是 C4 形状**：7 个 `module` 节点直接挂 `system`，跳过了 container/component，故 L3/L4 不可切、L2 只剩 3 个 container（12 条内部边里 9 条在 module 之间，L2 一条画不出） |
+| graphviz | 出一张关系密度高的 DOT | `.dot` 源 | ✅ `views/module-relations.dot`。19 条边**全部带关系类型标签**，DOT id 即模型 id；`rankdir=TB`、形状按图例统一；3 个孤点（`module:docs`、`module:contract`、`external:node-builtins`）按模型原样保留，不为构图补边 |
+| drawio | 给我可编辑的 .drawio | `.drawio` XML | ✅ `views/current-state.drawio`（7796 字节，由插件自己的 `export-preview` drawio 渲染器生成，非手写；17 节点 + 19 边，id 集合与模型完全一致，边端点全部可解析）+ `drawio-export-notes.md`。**记录一处技能与实现的冲突**：导出器不表达 `status`/`confidence`，不满足技能" visibly 标记低置信度"的规则，本轮不手改 XML 而给人工标记指南 |
 
-> ⬜ 的 8 项只差"问一次"。问的时候注意：回答必须来自模型/工具，不是目录列表；产物要能过 `architecture_validate`。
+> 13 项全部问过。回答均来自模型/工具而非目录列表；产物落盘在 `architecture/`（本地、不入库）。两条需要记录的保留意见：
+> 1. **legacy-system-visualizer 是场景错配下的验收**——本仓库不是无文档遗留系统，该项的完整验收需要一个真正的稀疏证据目标。
+> 2. **drawio 暴露了实现与技能规则的冲突**——`src/core/export-preview.js` 的 drawio 渲染器丢弃 `status`/`confidence`，技能却要求 visibly 标记。要么改导出器，要么改技能措辞，不能两边都留着。
 
 ## C. 本轮（2026-09-23）已沉淀的工程基线
 
