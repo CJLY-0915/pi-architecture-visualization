@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pi-desktop-plugin:architecture-visualization:architecture-model:1",
+  "title": "Architecture Model v1",
+  "$comment": "Structural contract only. Semantic rules that JSON Schema cannot express are enforced by src/core/validation.js: id uniqueness per collection, evidence reference resolution, dangling edge endpoints, unknown parentId, hierarchy cycles, evidence path containment in scope.roots, evidence requirement for confirmed facts, and edge state consistency with both endpoints. Enum values must stay in sync with that module.",
+  "description": "Evidence-backed architecture fact model stored as the target project's architecture/model.json and the single source of truth for diagrams, reports and exports. Nodes, edges and evidence have a frozen field contract; views, findings, decisions, migrationSlices and unknowns currently carry id-only objects and will be refined in a later phase.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "project",
+    "scope",
+    "sourceRevision",
+    "generatedAt",
+    "coverage",
+    "nodes",
+    "edges",
+    "evidence",
+    "views",
+    "findings",
+    "decisions",
+    "migrationSlices",
+    "unknowns"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "description": "Major version of this contract. A model with another major version is rejected by the validator instead of being partially interpreted."
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "type": "string" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["roots"],
+      "properties": {
+        "roots": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/scopeRoot" },
+          "description": "Relative POSIX paths that bound the analysis. Every evidence path must live under at least one of these roots."
+        }
+      }
+    },
+    "sourceRevision": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Source revision the model was derived from, for example a commit id. null means the revision is unknown, not that the model is complete."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 date-time with timezone. format is enforced by the validator, not by JSON Schema tooling."
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["filesScanned", "complete"],
+      "properties": {
+        "filesScanned": { "type": "integer", "minimum": 0 },
+        "complete": {
+          "type": "boolean",
+          "description": "false means the scan was partial or stopped; unresolved items must appear as inferred/unknown facts or in unknowns."
+        }
+      }
+    },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "views": { "$ref": "#/$defs/idCollection" },
+    "findings": { "$ref": "#/$defs/idCollection" },
+    "decisions": { "$ref": "#/$defs/idCollection" },
+    "migrationSlices": { "$ref": "#/$defs/idCollection" },
+    "unknowns": { "$ref": "#/$defs/idCollection" }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "not": {
+        "anyOf": [
+          { "pattern": "\\\\" },
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "(^|/)\\.\\.(/|$)" },
+          { "pattern": "(^|/)\\.(/|$)" },
+          { "pattern": "//" },
+          { "pattern": "/$" }
+        ]
+      },
+      "description": "Relative POSIX path without backslashes, drive letters, empty segments, \".\" or \"..\" segments and without a leading or trailing slash."
+    },
+    "scopeRoot": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "not": {
+        "anyOf": [
+          { "pattern": "\\\\" },
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "(^|/)\\.\\.(/|$)" },
+          { "pattern": "//" },
+          { "pattern": "/$" }
+        ]
+      },
+      "description": "Relative POSIX path below the project root; \".\" means the whole project. \"..\" segments, backslashes, drive letters and absolute paths are rejected."
+    },
+    "idCollection": {
+      "type": "array",
+      "description": "Placeholder contract for arrays whose detailed fields are not frozen in v1. Each entry is an object with a unique non-empty id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "type", "state", "status", "confidence", "evidenceIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "type": {
+          "enum": ["actor", "system", "container", "component", "module", "datastore", "external"]
+        },
+        "state": {
+          "enum": ["current", "target", "runtime"],
+          "description": "current, target and runtime observations are never mixed: one node carries one state."
+        },
+        "status": {
+          "enum": ["confirmed", "inferred", "assumed", "unknown"],
+          "description": "confirmed requires at least one declared evidence entry (semantic rule in src/core/validation.js)."
+        },
+        "confidence": {
+          "enum": ["high", "medium", "low", "unknown"]
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "description": "Ids of entries in the top-level evidence array."
+        },
+        "parentId": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Containment parent. Must resolve to a declared node id and must not form a parent cycle."
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "source", "target", "type", "state", "status", "confidence", "evidenceIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "source": { "$ref": "#/$defs/nonEmptyString" },
+        "target": { "$ref": "#/$defs/nonEmptyString" },
+        "type": {
+          "enum": ["depends_on", "calls", "reads", "writes", "publishes", "subscribes", "contains"]
+        },
+        "state": {
+          "enum": ["current", "target", "runtime"],
+          "description": "Must equal the state of both endpoints (semantic rule in src/core/validation.js)."
+        },
+        "status": {
+          "enum": ["confirmed", "inferred", "assumed", "unknown"]
+        },
+        "confidence": {
+          "enum": ["high", "medium", "low", "unknown"]
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "path", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "path": {
+          "$ref": "#/$defs/relativePath",
+          "description": "Path relative to the analyzed project, inside at least one scope root (semantic rule in src/core/validation.js)."
+        },
+        "type": {
+          "enum": ["code", "config", "schema", "iac", "runtime", "document", "test"]
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional 1-based line number; omitted when the evidence applies to the whole file."
+        }
+      }
+    }
+  }
+}

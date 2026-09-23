@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ADR 0110: 声明 v2 chrome 间距契约，宿主不再向 body 追加 46px；本页自行用 --pi-plugin-titlebar-height 排版（分离面板 46px / 停靠视图 0px）。 -->
+  <meta name="pi-plugin-chrome" content="v2" />
+  <title>架构档案台</title>
+  <style>
+    /* 设计约定：任务是只读审阅而非验证结论。深墨蓝承载档案底稿，青蓝仅指向可追溯证据，暖琥珀只提示覆盖范围；
+       4px 节奏、8px 以上圆角、稳健等宽数据字。避免营销式大色块、浮夸阴影和用颜色作为唯一状态提示。 */
+    :root {
+      color-scheme: dark;
+      --ink: #e6edf5;
+      --muted: #91a0b3;
+      --faint: #627287;
+      --paper: #0b111b;
+      --paper-raised: #101925;
+      --paper-inset: #080e16;
+      --line: #283749;
+      --line-strong: #40536a;
+      --evidence: #55c8e8;
+      --evidence-dim: #153a4b;
+      --amber: #efb75e;
+      --amber-dim: #392b15;
+      --danger: #ff9b9b;
+      --danger-dim: #3a1d24;
+      --ok: #83d5b0;
+      --radius-sm: 8px;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --shadow: 0 18px 46px rgb(0 0 0 / 22%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--paper); color: var(--ink); }
+    button, input, select { font: inherit; }
+    button, input, select { -webkit-app-region: no-drag; }
+    button { cursor: pointer; }
+    button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: .48; }
+    button:focus-visible, input:focus-visible, select:focus-visible, [tabindex="0"]:focus-visible {
+      outline: 2px solid var(--evidence); outline-offset: 3px;
+    }
+    .shell { min-height: 100dvh; padding: calc(var(--pi-plugin-titlebar-height, 46px) + 24px) clamp(16px, 3vw, 44px) 32px; background: radial-gradient(900px 500px at 100% 0%, #112a3b 0%, transparent 65%), linear-gradient(110deg, #0b111b, #0c141f); }
+    .masthead { -webkit-app-region: drag; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; max-width: 1540px; margin: 0 auto 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .eyebrow { margin: 0 0 6px; color: var(--evidence); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(23px, 3vw, 32px); font-weight: 650; letter-spacing: -.035em; }
+    .lede { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .read-only { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+    .read-only::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--evidence); box-shadow: 0 0 0 3px rgb(85 200 232 / 14%); }
+    .workspace-bar { max-width: 1540px; margin: 0 auto 20px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: rgb(16 25 37 / 80%); display: grid; grid-template-columns: minmax(150px, 1fr) auto; gap: 10px; box-shadow: var(--shadow); }
+    .path-input { width: 100%; min-width: 0; height: 42px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--paper-inset); color: var(--ink); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+    .path-input::placeholder { color: var(--faint); }
+    .button { min-height: 42px; padding: 0 15px; border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 650; font-size: 13px; transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out, transform 100ms ease-out; }
+    .button:active:not(:disabled) { transform: translateY(1px); }
+    .button.primary { background: var(--evidence); color: #061017; }
+    .button.primary:hover:not(:disabled) { background: #80d9ee; }
+    .button.secondary { border-color: var(--line-strong); background: transparent; color: var(--ink); }
+    .button.secondary:hover:not(:disabled) { border-color: var(--evidence); color: var(--evidence); background: #0d202b; }
+    .status { max-width: 1540px; margin: 0 auto 20px; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--line-strong); background: #0d1621; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .status[data-kind="loading"] { border-left-color: var(--evidence); color: #b7dae4; }
+    .status[data-kind="ready"] { border-left-color: var(--ok); color: #b7c9c0; }
+    .status[data-kind="warning"] { border-left-color: var(--amber); color: #e9ca90; background: #17140f; }
+    .status[data-kind="error"] { border-left-color: var(--danger); color: #f0b6b6; background: #1b1218; }
+    .spinner { width: 14px; height: 14px; flex: 0 0 auto; border: 2px solid #335264; border-top-color: var(--evidence); border-radius: 50%; animation: spin 680ms steps(10) infinite; }
+    .workspace-note { max-width: 1540px; margin: -12px auto 20px; color: var(--faint); font-size: 12px; }
+    .app-grid { max-width: 1540px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(310px, .53fr); gap: 20px; align-items: start; }
+    .archive, .detail { min-width: 0; border: 1px solid var(--line); background: rgb(13 22 33 / 86%); }
+    .archive { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+    .project-strip { padding: 20px; border-bottom: 1px solid var(--line); background: linear-gradient(100deg, #101d2b, #0e1723); }
+    .project-kicker { margin: 0 0 8px; color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; }
+    .project-name { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
+    .metadata { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .metadata div { min-width: 0; }
+    .metadata dt { color: var(--faint); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .metadata dd { margin: 5px 0 0; color: #c4d1df; font-size: 12px; overflow-wrap: anywhere; }
+    .coverage-warning { display: flex; gap: 10px; margin: 0; padding: 12px 20px; border-bottom: 1px solid #54411f; background: var(--amber-dim); color: #f1ce8d; font-size: 13px; line-height: 1.45; }
+    .coverage-warning[hidden] { display: none; }
+    .counts { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+    .count { min-width: 0; padding: 14px 18px; border-right: 1px solid var(--line); }
+    .count:last-child { border-right: 0; }
+    .count b { display: block; color: var(--evidence); font: 700 22px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .count span { color: var(--faint); font-size: 11px; }
+    .node-panel { padding: 18px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+    .section-heading h2, .detail h2 { margin: 0; font-size: 14px; letter-spacing: .02em; }
+    .result-count { color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .filters { display: grid; grid-template-columns: minmax(150px, 1.5fr) repeat(3, minmax(100px, .7fr)); gap: 8px; margin-bottom: 12px; }
+    .field { height: 38px; min-width: 0; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper-inset); color: var(--ink); font-size: 12px; }
+    .field:hover:not(:disabled) { border-color: var(--line-strong); }
+    .node-list { display: grid; gap: 6px; }
+    .node-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: inherit; text-align: left; animation: settle 300ms both; animation-delay: calc(var(--item-index) * 28ms); transition: border-color 120ms ease-out, background-color 120ms ease-out, transform 100ms ease-out; }
+    .node-row:hover { background: #101f2c; border-color: #274355; }
+    .node-row:active { transform: translateY(1px); }
+    .node-row[aria-pressed="true"] { border-color: var(--evidence); background: #102938; }
+    .node-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .node-title strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 650; }
+    .node-id { display: block; margin-top: 4px; color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .node-meta { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    .type-mark { width: 8px; height: 8px; flex: 0 0 auto; border: 1px solid var(--evidence); transform: rotate(45deg); }
+    .chip { padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: 3px; color: #acbdcd; font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+    .chip.status-unknown { color: var(--faint); }
+    .chip.status-deprecated, .chip.status-risk { color: var(--amber); border-color: #705826; }
+    .confidence { color: var(--evidence); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+    .empty-list { padding: 28px 12px; border: 1px dashed var(--line-strong); color: var(--muted); text-align: center; font-size: 13px; }
+    .detail { position: sticky; top: calc(var(--pi-plugin-titlebar-height, 46px) + 16px); border-radius: var(--radius); overflow: hidden; }
+    .detail-header { padding: 18px; border-bottom: 1px solid var(--line); background: #0d1926; }
+    .detail-header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .detail-body { padding: 18px; }
+    .placeholder { min-height: 236px; display: grid; place-items: center; color: var(--muted); text-align: center; font-size: 13px; line-height: 1.6; }
+    .detail-name { margin: 0; font-size: 18px; line-height: 1.35; overflow-wrap: anywhere; }
+    .detail-id { margin: 5px 0 18px; color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .detail-properties { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line); background: var(--line); }
+    .detail-properties div { min-width: 0; padding: 10px; background: var(--paper-raised); }
+    .detail-properties dt { color: var(--faint); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; text-transform: uppercase; }
+    .detail-properties dd { margin: 4px 0 0; color: #d4deeb; font-size: 12px; overflow-wrap: anywhere; }
+    .detail-section { margin-top: 20px; }
+    .detail-section h3 { margin: 0 0 8px; color: #aebed0; font: 700 11px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .evidence-list, .edge-list, .unknown-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .evidence-item, .edge-item, .unknown-item { padding: 10px; border-left: 2px solid var(--line-strong); background: #0b131e; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .evidence-item { border-left-color: var(--evidence); }
+    .evidence-id { display: block; margin-bottom: 3px; color: var(--evidence); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .edge-arrow { color: var(--evidence); padding: 0 4px; }
+    .unknowns { max-width: 1540px; margin: 20px auto 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: #0d1621; }
+    .unknowns[hidden] { display: none; }
+    .unknowns header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 12px; }
+    .unknowns h2 { margin: 0; font-size: 14px; }
+    .unknowns p { margin: 0; color: var(--faint); font-size: 12px; }
+    .unknown-item { color: var(--muted); }
+    .unknown-item::before { content: "?"; display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 8px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--amber); font: 700 11px ui-monospace, monospace; }
+    .source-note { max-width: 1540px; margin: 14px auto 0; color: var(--faint); font-size: 11px; line-height: 1.5; }
+    .analysis { max-width: 1540px; margin: 20px auto 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: #0d1621; }
+    .analysis > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+    .analysis h2 { margin: 0; font-size: 15px; }
+    .analysis > header p { margin: 0; color: var(--faint); font-size: 12px; }
+    .analysis-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .analysis-form { display: grid; gap: 8px; padding: 13px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper-raised); }
+    .analysis-form h3 { margin: 0 0 2px; font-size: 13px; }
+    .analysis-form p { margin: 0 0 4px; color: var(--faint); font-size: 11px; line-height: 1.45; }
+    .analysis-form .field { width: 100%; }
+    .analysis-form .button { min-height: 36px; justify-self: start; }
+    .analysis-status { margin-top: 14px; padding: 10px; border-left: 3px solid var(--line-strong); background: var(--paper-inset); color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .analysis-status[data-kind="loading"] { border-left-color: var(--evidence); }
+    .analysis-status[data-kind="error"] { border-left-color: var(--danger); color: #f0b6b6; }
+    .analysis-status[data-kind="ready"] { border-left-color: var(--ok); color: #b7c9c0; }
+    .analysis-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .result-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #0b131e; }
+    .result-card h3 { margin: 0 0 8px; color: #b8cce0; font-size: 12px; }
+    .result-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    .result-card ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+    .result-card li { padding: 7px; border-left: 2px solid var(--line-strong); background: var(--paper-raised); color: #c7d4e2; font: 11px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .result-card.warning { border-color: #705826; }
+    .result-card.warning li { border-left-color: var(--amber); }
+    .result-card.error { border-color: #70313a; }
+    @media (max-width: 920px) { .analysis-grid, .analysis-results { grid-template-columns: 1fr; } }
+    .result-card pre { max-height: 300px; margin: 0; overflow: auto; padding: 9px; border: 1px solid var(--line); background: var(--paper-inset); color: #c7d4e2; font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    [hidden] { display: none !important; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes settle { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 920px) { .app-grid { grid-template-columns: 1fr; } .detail { position: static; } }
+    @media (max-width: 660px) { .shell { padding-inline: 12px; } .masthead { gap: 12px; } .read-only { font-size: 10px; } .workspace-bar { grid-template-columns: 1fr 1fr; } .path-input { grid-column: 1 / -1; } .metadata { grid-template-columns: 1fr; gap: 10px; } .filters { grid-template-columns: 1fr 1fr; } .filters .field:first-child { grid-column: 1 / -1; } .node-row { grid-template-columns: minmax(0, 1fr); gap: 7px; } .node-meta { justify-content: flex-start; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">architecture records / p6.1</p>
+        <h1>架构档案台</h1>
+        <p class="lede">在当前工作区中只读打开模型，按节点、关系与证据线索进行审阅。</p>
+      </div>
+      <span class="read-only">只读模式 · 不保存</span>
+    </header>
+
+    <form id="load-form" class="workspace-bar" novalidate>
+      <label class="sr-only" for="model-path">模型相对路径</label>
+      <input id="model-path" class="path-input" name="modelPath" value="architecture/model.json" autocomplete="off" spellcheck="false" aria-describedby="path-help" />
+      <button class="button primary" id="load-button" type="submit">读取模型</button>
+    </form>
+    <p id="path-help" class="workspace-note">路径相对于已打开的工作区；面板不会自行生成或保存模型。</p>
+
+    <section id="status" class="status" data-kind="idle" aria-live="polite" aria-atomic="true">
+      <span>等待选择模型。读取前会检查工作区、文件与基础结构。</span>
+    </section>
+
+    <div id="reader" hidden>
+      <section class="app-grid" aria-label="架构模型浏览器">
+        <section class="archive" aria-labelledby="project-name">
+          <header class="project-strip">
+            <p class="project-kicker">当前档案</p>
+            <h2 class="project-name" id="project-name">—</h2>
+            <dl class="metadata">
+              <div><dt>source revision</dt><dd id="source-revision">未提供</dd></div>
+              <div><dt>generated at</dt><dd id="generated-at">未提供</dd></div>
+              <div><dt>coverage</dt><dd id="coverage-value">未提供</dd></div>
+            </dl>
+          </header>
+          <p id="coverage-warning" class="coverage-warning" hidden><span aria-hidden="true">▲</span><span></span></p>
+          <div class="counts" aria-label="模型数量统计">
+            <div class="count"><b id="node-count">0</b><span>节点</span></div>
+            <div class="count"><b id="edge-count">0</b><span>关系边</span></div>
+            <div class="count"><b id="evidence-count">0</b><span>证据</span></div>
+          </div>
+          <section class="node-panel" aria-labelledby="nodes-heading">
+            <div class="section-heading"><h2 id="nodes-heading">节点索引</h2><span id="result-count" class="result-count">0 条</span></div>
+            <div class="filters" role="search" aria-label="筛选节点">
+              <input id="search" class="field" type="search" placeholder="搜索名称、ID、说明" aria-label="搜索节点" />
+              <select id="type-filter" class="field" aria-label="按类型筛选"><option value="">全部类型</option></select>
+              <select id="state-filter" class="field" aria-label="按状态筛选"><option value="">全部状态</option></select>
+              <select id="confidence-filter" class="field" aria-label="按置信度筛选"><option value="">全部置信度</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option><option value="unknown">未知</option></select>
+            </div>
+            <div id="node-list" class="node-list" role="list" aria-label="节点列表"></div>
+          </section>
+        </section>
+
+        <aside class="detail" aria-labelledby="detail-heading">
+          <header class="detail-header"><h2 id="detail-heading">节点详档</h2><p id="detail-subtitle">从节点索引选择一项以查看关联线索。</p></header>
+          <div id="detail-body" class="detail-body" aria-live="polite"><div class="placeholder">尚未选择节点<br />详情会列出模型中已记录的证据与关联边。</div></div>
+        </aside>
+      </section>
+      <section id="unknowns" class="unknowns" hidden aria-labelledby="unknowns-heading">
+        <header><div><h2 id="unknowns-heading">待厘清项</h2><p>模型作者标记为未确定的范围；并非本界面作出的判断。</p></div><span id="unknown-count" class="result-count"></span></header>
+        <ul id="unknown-list" class="unknown-list"></ul>
+      </section>
+      <section class="analysis" aria-labelledby="analysis-heading">
+        <header><div><h2 id="analysis-heading">受限分析</h2><p>执行现有只读分析；预算截断、停止原因与证据不确定性会原样保留。</p></div><span class="read-only">不写入</span></header>
+        <div class="analysis-grid">
+          <form id="query-form" class="analysis-form"><h3>图查询</h3><p>路径与邻居模式使用起点/目标 ID；路径模式另需终点 ID。</p><select id="query-mode" class="field" aria-label="查询模式"><option value="filter">筛选全部节点</option><option value="neighbours">相邻节点</option><option value="paths">节点路径</option><option value="cycles">完整环路</option></select><input id="query-targets" class="field" placeholder="起点或目标 ID（逗号分隔）" aria-label="查询起点或目标" /><input id="query-to" class="field" placeholder="终点 ID（仅路径）" aria-label="查询终点" /><button class="button secondary" type="submit">执行图查询</button></form>
+          <form id="export-form" class="analysis-form"><h3>内存导出预览</h3><p>不下载、不保存。PNG 在零依赖边界中仅报告不支持原因。</p><select id="export-format" class="field" aria-label="导出预览格式"><option value="mermaid">Mermaid</option><option value="dot">DOT</option><option value="structurizr">Structurizr DSL</option><option value="drawio">Draw.io XML</option><option value="markdown">Markdown</option><option value="json">JSON</option><option value="svg">SVG</option><option value="png">PNG（受限）</option><option value="html">离线 HTML</option></select><button class="button secondary" type="submit">生成内存预览</button></form>
+          <form id="impact-form" class="analysis-form"><h3>影响分析</h3><p>只接受明确稳定节点 ID 或已声明证据路径；默认下游，深度最多 8。</p><input id="impact-targets" class="field" placeholder="节点 ID 或证据路径（逗号分隔）" aria-label="影响分析目标" required /><select id="impact-direction" class="field" aria-label="影响方向"><option value="downstream">下游影响</option><option value="upstream">上游影响</option><option value="both">双向影响</option></select><button class="button secondary" type="submit">执行影响分析</button></form>
+          <form id="compare-form" class="analysis-form"><h3>快照比较</h3><p>比较两个明确工作区相对模型路径；不推断 Git、分支或证据新鲜度。</p><input id="compare-before" class="field" placeholder="较早模型路径" aria-label="较早模型路径" required /><input id="compare-after" class="field" placeholder="较新模型路径" aria-label="较新模型路径" required /><button class="button secondary" type="submit">比较快照</button></form>
+          <form id="health-form" class="analysis-form"><h3>架构健康</h3><p>仅评估模型自身声明的合同、覆盖、未知项、证据与置信度；源码、证据/产物新鲜度保持未知。</p><button class="button secondary" type="submit">运行健康检查</button></form>
+        </div>
+        <div id="analysis-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">请先载入模型；分析仅从工作区读取明确指定的模型文件。</div>
+        <div id="analysis-results" class="analysis-results" aria-live="polite"></div>
+      </section>
+      <p class="source-note">本界面仅呈现所读取模型中的记录与数量，未对源内容、证据或覆盖率作独立验证。</p>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+      const MAX_MODEL_BYTES = 2 * 1024 * 1024;
+      const DEFAULT_PATH = "architecture/model.json";
+      const state = { model: null, path: DEFAULT_PATH, selectedId: null };
+      const $ = (id) => document.getElementById(id);
+      const ui = {
+        form: $("load-form"), path: $("model-path"), load: $("load-button"),
+        status: $("status"), reader: $("reader"), projectName: $("project-name"),
+        revision: $("source-revision"), generated: $("generated-at"), coverage: $("coverage-value"), warning: $("coverage-warning"),
+        nodes: $("node-count"), edges: $("edge-count"), evidence: $("evidence-count"), resultCount: $("result-count"),
+        search: $("search"), type: $("type-filter"), statusFilter: $("state-filter"), confidence: $("confidence-filter"), list: $("node-list"),
+        detail: $("detail-body"), detailSubtitle: $("detail-subtitle"), unknowns: $("unknowns"), unknownCount: $("unknown-count"), unknownList: $("unknown-list"),
+        queryForm: $("query-form"), queryMode: $("query-mode"), queryTargets: $("query-targets"), queryTo: $("query-to"), impactForm: $("impact-form"), impactTargets: $("impact-targets"), impactDirection: $("impact-direction"), compareForm: $("compare-form"), compareBefore: $("compare-before"), compareAfter: $("compare-after"), exportForm: $("export-form"), exportFormat: $("export-format"), healthForm: $("health-form"), analysisStatus: $("analysis-status"), analysisResults: $("analysis-results")
+      };
+
+      function setStatus(kind, message) {
+        ui.status.dataset.kind = kind;
+        ui.status.replaceChildren();
+        if (kind === "loading") { const spinner = document.createElement("span"); spinner.className = "spinner"; spinner.setAttribute("aria-hidden", "true"); ui.status.append(spinner); }
+        const text = document.createElement("span"); text.textContent = message; ui.status.append(text);
+      }
+      function setBusy(busy) { ui.load.disabled = busy; ui.path.disabled = busy; }
+      function setAnalysisBusy(busy) { document.querySelectorAll(".analysis-form input, .analysis-form select, .analysis-form button").forEach((element) => { element.disabled = busy; }); }
+      function setAnalysisStatus(kind, message) { ui.analysisStatus.dataset.kind = kind; ui.analysisStatus.textContent = message; }
+      function bridgeInvoke(channel, args) {
+        if (!window.pluginBridge || typeof window.pluginBridge.invoke !== "function") throw new Error("读取桥接不可用：window.pluginBridge.invoke 未提供。");
+        return window.pluginBridge.invoke(channel, args);
+      }
+      function workspacePath(result) {
+        if (typeof result === "string") return result;
+        if (!result || typeof result !== "object") return "";
+        return result.path || result.workspacePath || result.root || result.uri || "";
+      }
+      function readTextPayload(result) {
+        if (typeof result === "string") return result;
+        if (result && typeof result === "object") {
+          if (typeof result.text === "string") return result.text;
+          if (typeof result.content === "string") return result.content;
+          if (typeof result.data === "string") return result.data;
+        }
+        throw new Error("fs.readText 未返回文本内容。");
+      }
+      function statExists(stat) {
+        if (stat === false || stat === null || stat === undefined) return false;
+        if (typeof stat === "object" && (stat.exists === false || stat.isFile === false || stat.type === "missing")) return false;
+        return true;
+      }
+      function errorKind(error) {
+        const message = String(error && error.message || error || "未知读取错误");
+        if (/permission|access|denied|eacces|eprem|权限|拒绝/i.test(message)) return "权限或读取失败";
+        if (/not[ -]?found|enoent|不存在|找不到/i.test(message)) return "未找到模型";
+        return "读取失败";
+      }
+      function diagnose(model) {
+        const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+        const text = (value) => typeof value === "string" && value.trim() !== "";
+        const list = ["nodes", "edges", "evidence", "views", "findings", "decisions", "migrationSlices", "unknowns"];
+        if (!object(model)) return "根对象必须是 JSON 对象。";
+        if (model.schemaVersion !== 1) return `schemaVersion 必须严格等于 1；当前为 ${model.schemaVersion === undefined ? "未提供" : JSON.stringify(model.schemaVersion)}。`;
+        if (!object(model.project) || !text(model.project.id)) return "project.id 必须是非空字符串。";
+        if (!object(model.scope) || !Array.isArray(model.scope.roots) || !model.scope.roots.length) return "scope.roots 必须是非空数组。";
+        if (!((model.sourceRevision === null || text(model.sourceRevision)) && text(model.generatedAt))) return "sourceRevision 或 generatedAt 不符合基础合同。";
+        if (!object(model.coverage) || !Number.isInteger(model.coverage.filesScanned) || model.coverage.filesScanned < 0 || typeof model.coverage.complete !== "boolean") return "coverage 必须包含非负 filesScanned 与布尔 complete。";
+        const invalidList = list.find((key) => !Array.isArray(model[key])); if (invalidList) return `缺少必填数组或类型错误：${invalidList}。`;
+        for (const key of list) { const bad = model[key].findIndex((item) => !object(item) || !text(item.id)); if (bad >= 0) return `${key}[${bad}] 必须是带非空 id 的对象。`; }
+        const nodeTypes = ["actor", "system", "container", "component", "module", "datastore", "external"]; const states = ["current", "target", "runtime"]; const statuses = ["confirmed", "inferred", "assumed", "unknown"]; const confidences = ["high", "medium", "low", "unknown"]; const edgeTypes = ["depends_on", "calls", "reads", "writes", "publishes", "subscribes", "contains"]; const evidenceTypes = ["code", "config", "schema", "iac", "runtime", "document", "test"];
+        const nodeBad = model.nodes.findIndex((node) => !text(node.name) || !nodeTypes.includes(node.type) || !states.includes(node.state) || !statuses.includes(node.status) || !confidences.includes(node.confidence) || !Array.isArray(node.evidenceIds)); if (nodeBad >= 0) return `nodes[${nodeBad}] 不符合 v1 节点字段合同。`;
+        const edgeBad = model.edges.findIndex((edge) => !text(edge.source) || !text(edge.target) || !edgeTypes.includes(edge.type) || !states.includes(edge.state) || !statuses.includes(edge.status) || !confidences.includes(edge.confidence) || !Array.isArray(edge.evidenceIds)); if (edgeBad >= 0) return `edges[${edgeBad}] 不符合 v1 关系字段合同。`;
+        const evidenceBad = model.evidence.findIndex((item) => !text(item.path) || !evidenceTypes.includes(item.type) || (item.line !== undefined && (!Number.isInteger(item.line) || item.line < 1))); if (evidenceBad >= 0) return `evidence[${evidenceBad}] 不符合 v1 证据字段合同。`;
+        return "";
+      }
+      function printable(value, fallback = "未提供") {
+        if (value === null || value === undefined || value === "") return fallback;
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+        try { return JSON.stringify(value); } catch { return fallback; }
+      }
+      function projectTitle(model) {
+        const project = model && model.project;
+        if (project && typeof project === "object") return printable(project.name || project.id, "未命名项目");
+        return printable(model && (model.projectName || model.name || model.title), "未命名项目");
+      }
+      function nodeId(node, index) { return printable(node && (node.id || node.nodeId || node.key), `node-${index + 1}`); }
+      function nodeName(node, index) { return printable(node && (node.name || node.label || node.title), nodeId(node, index)); }
+      function nodeType(node) { return printable(node && node.type, "未分类"); }
+      function nodeStatus(node) { return printable(node && node.status, "未提供"); }
+      function nodeConfidence(node) { return node && typeof node.confidence === "string" ? node.confidence : "unknown"; }
+      function confidenceGroup(node) { return nodeConfidence(node); }
+      function coverageSummary(coverage) {
+        const scanned = Number.isInteger(coverage && coverage.filesScanned) ? coverage.filesScanned : 0;
+        const incomplete = !coverage || coverage.complete !== true;
+        return { text: `${incomplete ? "不完整" : "完整"}（已扫描 ${scanned} 个文件）`, incomplete, note: `模型${incomplete ? "标记的覆盖范围不完整，解读时请保留范围限制。" : "标记为完整覆盖。"}` };
+      }
+      function displayModel() {
+        const model = state.model; const coverage = coverageSummary(model.coverage);
+        ui.reader.hidden = false;
+        ui.projectName.textContent = projectTitle(model);
+        ui.revision.textContent = printable(model.sourceRevision); ui.generated.textContent = printable(model.generatedAt); ui.coverage.textContent = coverage.text;
+        ui.nodes.textContent = model.nodes.length; ui.edges.textContent = model.edges.length; ui.evidence.textContent = model.evidence.length;
+        ui.warning.hidden = !coverage.incomplete; if (coverage.incomplete) ui.warning.lastElementChild.textContent = coverage.note;
+        populateFilters(); renderNodes(); renderUnknowns(); renderDetail();
+      }
+      function fillSelect(select, values, label) {
+        const current = select.value; select.replaceChildren();
+        const all = document.createElement("option"); all.value = ""; all.textContent = `全部${label}`; select.append(all);
+        values.sort((a, b) => a.localeCompare(b, "zh-CN")).forEach((value) => { const option = document.createElement("option"); option.value = value; option.textContent = value; select.append(option); });
+        select.value = values.includes(current) ? current : "";
+      }
+      function populateFilters() {
+        fillSelect(ui.type, [...new Set(state.model.nodes.map(nodeType))], "类型");
+        fillSelect(ui.statusFilter, [...new Set(state.model.nodes.map(nodeStatus))], "事实状态");
+      }
+      function filteredNodes() {
+        const query = ui.search.value.trim().toLocaleLowerCase("zh-CN");
+        return state.model.nodes.map((node, index) => ({ node, index })).filter(({ node, index }) => {
+          const haystack = [nodeName(node, index), nodeId(node, index), node && node.description, node && node.summary].map((x) => printable(x, "")).join(" ").toLocaleLowerCase("zh-CN");
+          return (!query || haystack.includes(query)) && (!ui.type.value || nodeType(node) === ui.type.value) && (!ui.statusFilter.value || nodeStatus(node) === ui.statusFilter.value) && (!ui.confidence.value || confidenceGroup(node) === ui.confidence.value);
+        });
+      }
+      function renderNodes() {
+        if (!state.model) return; const rows = filteredNodes(); ui.resultCount.textContent = `${rows.length} / ${state.model.nodes.length} 条`; ui.list.replaceChildren();
+        if (!rows.length) { const empty = document.createElement("div"); empty.className = "empty-list"; empty.textContent = "没有符合当前筛选条件的节点。"; ui.list.append(empty); return; }
+        rows.forEach(({ node, index }, visualIndex) => {
+          const id = nodeId(node, index); const row = document.createElement("button"); row.type = "button"; row.className = "node-row"; row.style.setProperty("--item-index", Math.min(visualIndex, 12)); row.setAttribute("aria-pressed", String(state.selectedId === id)); row.setAttribute("aria-label", `查看节点 ${nodeName(node, index)}：${nodeType(node)}，${nodeStatus(node)}，置信度 ${nodeConfidence(node)}。`);
+          const main = document.createElement("span"); const title = document.createElement("span"); title.className = "node-title"; const mark = document.createElement("span"); mark.className = "type-mark"; mark.setAttribute("aria-hidden", "true"); const name = document.createElement("strong"); name.textContent = nodeName(node, index); title.append(mark, name); const nid = document.createElement("span"); nid.className = "node-id"; nid.textContent = id; main.append(title, nid);
+          const meta = document.createElement("span"); meta.className = "node-meta"; const type = document.createElement("span"); type.className = "chip"; type.textContent = nodeType(node); const status = document.createElement("span"); status.className = `chip status-${nodeStatus(node).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`; status.textContent = nodeStatus(node); const confidence = document.createElement("span"); confidence.className = "confidence"; confidence.textContent = `置信度 ${nodeConfidence(node)}`; meta.append(type, status, confidence); row.append(main, meta); row.addEventListener("click", () => { state.selectedId = id; renderNodes(); renderDetail(); }); ui.list.append(row);
+        });
+      }
+      function evidenceFor(ids) {
+        const refs = Array.isArray(ids) ? ids : [];
+        return state.model.evidence.filter((item) => refs.includes(item.id));
+      }
+      function relatedEdges(id) { return state.model.edges.filter((edge) => edge.source === id || edge.target === id); }
+      function listSection(title, items, makeItem, emptyText) {
+        const section = document.createElement("section"); section.className = "detail-section"; const h = document.createElement("h3"); h.textContent = title; section.append(h); const list = document.createElement("ul"); list.className = title === "证据记录" ? "evidence-list" : "edge-list";
+        if (!items.length) { const item = document.createElement("li"); item.className = "edge-item"; item.textContent = emptyText; list.append(item); } else items.forEach((item) => list.append(makeItem(item))); section.append(list); return section;
+      }
+      function renderDetail() {
+        ui.detail.replaceChildren(); if (!state.model || !state.selectedId) { ui.detailSubtitle.textContent = "从节点索引选择一项以查看关联线索。"; const placeholder = document.createElement("div"); placeholder.className = "placeholder"; placeholder.innerHTML = "尚未选择节点<br>详情会列出模型中已记录的证据与关联边。"; ui.detail.append(placeholder); return; }
+        const index = state.model.nodes.findIndex((node, i) => nodeId(node, i) === state.selectedId); const node = state.model.nodes[index]; if (!node) { state.selectedId = null; renderDetail(); return; }
+        ui.detailSubtitle.textContent = "以下内容均来自当前读取的模型记录。";
+        const name = document.createElement("h3"); name.className = "detail-name"; name.textContent = nodeName(node, index); const id = document.createElement("p"); id.className = "detail-id"; id.textContent = nodeId(node, index); const props = document.createElement("dl"); props.className = "detail-properties";
+        [["类型", nodeType(node)], ["架构状态", printable(node.state)], ["事实状态", nodeStatus(node)], ["置信度", nodeConfidence(node)], ["说明", printable(node.description || node.summary)]].forEach(([label, value]) => { const div = document.createElement("div"); const dt = document.createElement("dt"); dt.textContent = label; const dd = document.createElement("dd"); dd.textContent = value; div.append(dt, dd); props.append(div); });
+        ui.detail.append(name, id, props);
+        const evidence = evidenceFor(node.evidenceIds); ui.detail.append(listSection("证据记录", evidence, (item) => { const li = document.createElement("li"); li.className = "evidence-item"; const eid = document.createElement("span"); eid.className = "evidence-id"; const line = Number.isInteger(item.line) ? `:${item.line}` : ""; eid.textContent = `${printable(item.id, "未编号证据")} · ${printable(item.type, "未标注类型")}`; const text = document.createElement("span"); text.textContent = `${printable(item.path, "证据未提供路径")}${line}`; li.append(eid, text); return li; }, "该节点没有关联的证据记录。"));
+        const edges = relatedEdges(state.selectedId); ui.detail.append(listSection("关联边", edges, (edge) => { const li = document.createElement("li"); li.className = "edge-item"; const eid = document.createElement("span"); eid.className = "evidence-id"; eid.textContent = edge.id; const summary = document.createElement("span"); summary.textContent = `${edge.source} → ${edge.target} · ${edge.type} · ${edge.state}/${edge.status} · 置信度 ${edge.confidence}`; const proof = document.createElement("span"); const refs = evidenceFor(edge.evidenceIds).map((item) => `${item.path}${Number.isInteger(item.line) ? `:${item.line}` : ""}`); proof.textContent = refs.length ? `证据：${refs.join("、")}` : "证据：未提供"; li.append(eid, summary, document.createElement("br"), proof); return li; }, "该节点没有关联的边记录。"));
+      }
+      function renderUnknowns() {
+        const unknowns = Array.isArray(state.model.unknowns) ? state.model.unknowns : [];
+        ui.unknowns.hidden = !unknowns.length; ui.unknownList.replaceChildren(); ui.unknownCount.textContent = `${unknowns.length} 项`;
+        unknowns.forEach((unknown) => { const li = document.createElement("li"); li.className = "unknown-item"; li.textContent = printable(typeof unknown === "object" ? (unknown.question || unknown.description || unknown.text || unknown.title) : unknown, "未说明待厘清项"); ui.unknownList.append(li); });
+      }
+      function array(value) { return Array.isArray(value) ? value : []; }
+      function splitValues(value) { return String(value || "").split(",").map((item) => item.trim()).filter(Boolean); }
+      function describe(value) { if (typeof value === "string") return value; try { return JSON.stringify(value); } catch { return "不可显示的结果项"; } }
+      function resultCard(title, entries, kind = "") { const card = document.createElement("section"); card.className = `result-card ${kind}`; const heading = document.createElement("h3"); heading.textContent = title; card.append(heading); if (!entries.length) { const note = document.createElement("p"); note.textContent = "无记录。"; card.append(note); return card; } const list = document.createElement("ul"); entries.slice(0, 24).forEach((entry) => { const item = document.createElement("li"); item.textContent = describe(entry); list.append(item); }); if (entries.length > 24) { const item = document.createElement("li"); item.textContent = `仅显示前 24 / ${entries.length} 项；结果未被视为完整。`; list.append(item); } card.append(list); return card; }
+      function previewCard(result) { const card = document.createElement("section"); card.className = `result-card ${result.supported ? "" : "warning"}`; const heading = document.createElement("h3"); heading.textContent = `内存预览 · ${result.format}`; const meta = document.createElement("p"); meta.textContent = result.supported ? `${result.mimeType}；未保存或下载。` : "该格式在当前安全边界中不生成内容。"; card.append(heading, meta); if (result.content) { const pre = document.createElement("pre"); pre.textContent = result.content; card.append(pre); if (result.contentTruncated === true) { const note = document.createElement("p"); note.textContent = "内容已受 12,000 字符内存预览预算截断；未保存其余内容，也不能视为完整导出。"; card.append(note); } } return card; }
+      function renderAnalysis(kind, result) {
+        ui.analysisResults.replaceChildren();
+        const healthDiagnostics = kind === "health" && result && result.validation && Array.isArray(result.findings);
+        if (!result || (result.ok !== true && !healthDiagnostics)) { const error = result && result.error ? `${result.error.code || "analysis_failed"}：${result.error.message || "分析没有产生完整结果。"}` : "分析调用失败，未产生完整结果。"; ui.analysisResults.append(resultCard("未完成的分析", [error], "error")); if (result && result.truncated) ui.analysisResults.append(resultCard("结果上限", [`响应超过 ${result.maxResponseBytes || "宿主"} 字节预算；未提供部分结果。`], "warning")); setAnalysisStatus("error", error); return; }
+        const warnings = []; if (result.sourceContentVerified === false) warnings.push("源文件内容未重新验证；结果仅基于已读取的模型。"); if (result.modelContext && result.modelContext.coverage && result.modelContext.coverage.complete === false) warnings.push(`模型覆盖不完整：已扫描 ${result.modelContext.coverage.filesScanned} 个文件。`); if (result.truncated) warnings.push("结果受预算截断；不得当作完整结论。"); array(result.stops).concat(array(result.stopReasons)).forEach((item) => warnings.push(`停止：${item.reason}${item.nodeId ? ` @ ${item.nodeId}` : ""}${item.detail ? ` — ${item.detail}` : ""}`)); array(result.dangling).forEach((item) => warnings.push(`悬空引用：${item.id} / ${item.reason} / ${item.nodeId}`)); array(result.unresolvedTargets).forEach((item) => warnings.push(`未解析目标：${item.input} / ${item.reason}`));
+        if (warnings.length) ui.analysisResults.append(resultCard("范围与限制", warnings, "warning"));
+        if (kind === "query") { const rows = array(result.nodes).map((item) => `${item.id} · ${item.type}/${item.status}/${item.confidence}`).concat(array(result.neighbours).map((item) => `${item.id} · ${item.direction} · ${item.via && item.via.type}`), array(result.paths).map((item) => array(item).map((step) => step.nodeId).join(" → ")), array(result.cycles).map((item) => `${item.id}：${array(item.nodeIds).join(" → ")}`)); ui.analysisResults.append(resultCard("查询结果", rows)); ui.analysisResults.append(resultCard("统计", [result.stats || { totalNodes: result.totalNodes, totalEdges: result.totalEdges, truncated: result.truncated }])); }
+        if (kind === "impact") { ui.analysisResults.append(resultCard("匹配目标", array(result.targets))); ui.analysisResults.append(resultCard("受影响节点", array(result.impacted).map((item) => `${item.nodeId} · 深度 ${item.depth} · ${item.via && item.via.type} · ${item.status}/${item.confidence}`))); ui.analysisResults.append(resultCard("统计", [result.stats || {}])); }
+        if (kind === "compare") { const summary = result.summary || {}; ui.analysisResults.append(resultCard(result.identical ? "比较：语义相同" : "比较：存在差异", [{ revisionChanged: result.revisionChanged, ...summary }])); ui.analysisResults.append(resultCard("证据新鲜度", array(result.evidence && result.evidence.stale).map((item) => `stale：${item.id} / ${item.reason}`).concat(array(result.evidence && result.evidence.freshnessUnknown).map((item) => `未知：${item.id} / ${item.reason}`)), "warning")); ui.analysisResults.append(resultCard("候选与悬空引用", array(result.renameCandidates).concat(array(result.danglingEvidenceRefs)))); }
+        if (kind === "export") { ui.analysisResults.append(previewCard(result)); ui.analysisResults.append(resultCard("元数据与图例", [result.metadata, ...array(result.legend)])); ui.analysisResults.append(resultCard("限制", array(result.limitations), "warning")); }
+        if (kind === "health") { const findingCount = result.counts && Number.isInteger(result.counts.findings) ? result.counts.findings : array(result.findings).length; const title = result.ok ? (findingCount ? "模型合同通过；存在健康发现" : "模型合同通过；未记录健康发现") : "模型合同未通过"; const tone = result.ok ? (findingCount ? "warning" : "") : "error"; ui.analysisResults.append(resultCard(title, [result.counts || {}], tone)); ui.analysisResults.append(resultCard("健康发现", array(result.findings).map((item) => `${item.severity}/${item.category} · ${item.code} · ${item.kind || "model"}${item.id ? `:${item.id}` : ""}${item.field ? `/${item.field}` : ""} — ${item.message}`), tone)); ui.analysisResults.append(resultCard("未验证状态", [result.unverified || {}, ...array(result.limitations)], "warning")); }
+        setAnalysisStatus("ready", "只读分析完成。所有范围限制、停止原因与未验证状态均已列出。");
+      }
+      async function runAnalysis(channel, payload, kind, label) { if (!state.model) { setAnalysisStatus("error", "请先成功读取一个模型，再执行分析。"); return; } setAnalysisBusy(true); setAnalysisStatus("loading", `正在执行${label}；不会写入工作区…`); try { renderAnalysis(kind, await bridgeInvoke(channel, payload)); } catch (error) { renderAnalysis(kind, { ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } }); } finally { setAnalysisBusy(false); } }
+      function queryRequest() { const mode = ui.queryMode.value; const targets = splitValues(ui.queryTargets.value); if ((mode === "neighbours" || mode === "paths") && !targets.length) return null; if (mode === "paths" && !ui.queryTo.value.trim()) return null; const request = { path: state.path, mode, maxNodes: 150, maxDepth: 8, maxSteps: 5000 }; if (mode === "neighbours") request.targets = targets; if (mode === "paths") { request.from = targets[0]; request.to = ui.queryTo.value.trim(); } if (mode === "cycles") request.maxCycles = 20; return request; }
+      ui.queryForm.addEventListener("submit", (event) => { event.preventDefault(); const request = queryRequest(); if (!request) { setAnalysisStatus("error", "邻居查询需要目标 ID；路径查询还需要明确终点 ID。不会猜测目标。"); return; } runAnalysis("architecture.query", request, "query", "图查询"); });
+      ui.impactForm.addEventListener("submit", (event) => { event.preventDefault(); const targets = splitValues(ui.impactTargets.value); if (!targets.length) { setAnalysisStatus("error", "影响分析需要明确节点 ID 或已声明证据路径。不会猜测变更。"); return; } runAnalysis("architecture.impact", { path: state.path, targets, direction: ui.impactDirection.value, maxDepth: 8, maxNodes: 150 }, "impact", "影响分析"); });
+      ui.compareForm.addEventListener("submit", (event) => { event.preventDefault(); const beforePath = ui.compareBefore.value.trim(); const afterPath = ui.compareAfter.value.trim(); if (!beforePath || !afterPath) { setAnalysisStatus("error", "快照比较需要两个明确的工作区相对模型路径。不会推断 Git 或分支。"); return; } runAnalysis("architecture.compare", { beforePath, afterPath }, "compare", "快照比较"); });
+      ui.exportForm.addEventListener("submit", (event) => { event.preventDefault(); runAnalysis("architecture.exportPreview", { path: state.path, format: ui.exportFormat.value }, "export", "内存导出预览"); });
+      ui.healthForm.addEventListener("submit", (event) => { event.preventDefault(); runAnalysis("architecture.health", { path: state.path }, "health", "架构健康检查"); });
+      async function loadModel(path) {
+        const trimmed = String(path || "").trim();
+        state.model = null; state.selectedId = null; ui.reader.hidden = true;
+        if (!trimmed) { setStatus("error", "请输入模型相对路径后再读取。"); ui.path.focus(); return; }
+        ui.path.value = trimmed; setBusy(true); setStatus("loading", `正在从工作区读取 ${trimmed}…`);
+        try {
+          const workspace = await bridgeInvoke("workspace.get", {});
+          if (!workspacePath(workspace)) { setStatus("error", "未打开工作区：请先在宿主中打开工作区，再读取模型。"); return; }
+          let stat;
+          try { stat = await bridgeInvoke("fs.stat", { path: trimmed }); } catch (error) { setStatus("error", `${errorKind(error)}：${String(error.message || error)}`); return; }
+          if (!statExists(stat)) { setStatus("error", `未找到模型：工作区中不存在 “${trimmed}”。请检查相对路径。`); return; }
+          if (typeof stat.size === "number" && stat.size > MAX_MODEL_BYTES) { setStatus("error", `模型过大：读取前已拒绝超过 2 MiB 的文件（当前 ${stat.size} 字节）。`); return; }
+          let raw;
+          try { raw = readTextPayload(await bridgeInvoke("fs.readText", { path: trimmed })); } catch (error) { setStatus("error", `${errorKind(error)}：${String(error.message || error)}`); return; }
+          let model;
+          try { model = JSON.parse(raw); } catch (error) { setStatus("error", `JSON 损坏：${error.message || "无法解析文件内容"}`); return; }
+          const problem = diagnose(model); if (problem) { setStatus("error", `结构无效：${problem} 面板仅呈现通过 v1 基础合同检查的模型。`); return; }
+          state.model = model; state.path = trimmed; state.selectedId = null; displayModel(); setStatus("ready", `已只读载入 ${trimmed}。可筛选节点并选择一项查看模型中记录的关联线索。`);
+        } catch (error) { setStatus("error", `${errorKind(error)}：${String(error.message || error)}`); }
+        finally { setBusy(false); }
+      }
+      ui.form.addEventListener("submit", (event) => { event.preventDefault(); loadModel(ui.path.value); });
+      [ui.search, ui.type, ui.statusFilter, ui.confidence].forEach((control) => control.addEventListener(control === ui.search ? "input" : "change", renderNodes));
+    })();
+  </script>
+  <style>.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }</style>
+</body>
+</html>

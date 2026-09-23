@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "id": "local.architecture-visualization",
+  "name": "Architecture Visualization",
+  "version": "0.1.0",
+  "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
+  "i18n": {
+    "zh-CN": {
+      "name": "架构可视化",
+      "description": "面向复杂代码库的证据驱动架构理解、影响分析和健康检查。",
+      "safetyNotes": "只读分析与内存预览；本版本不保存或写入任何产物。"
+    },
+    "en": {
+      "name": "Architecture Visualization",
+      "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
+      "safetyNotes": "Read-only analysis and in-memory previews; this version does not save or write artifacts."
+    }
+  },
+  "main": "main.js",
+  "ui": {
+    "panel": "renderer/index.html",
+    "title": "Architecture Visualization",
+    "width": 1180,
+    "height": 760,
+    "resizable": true
+  },
+  "contributes": {
+    "agentExtensions": [
+      "extensions/workflow-rule.mjs"
+    ],
+    "commands": [
+      { "id": "architecture-visualization.open", "title": "Architecture: Open Workbench", "keywords": ["architecture", "diagram", "架构", "可视化"], "category": "Architecture" },
+      { "id": "architecture-visualization.validate", "title": "Architecture: Validate Model", "keywords": ["architecture", "validate", "health", "校验", "健康"], "category": "Architecture" },
+      { "id": "architecture-visualization.collect", "title": "Architecture: Collect Current State", "keywords": ["architecture", "collect", "scan", "采集", "扫描"], "category": "Architecture" }
+    ],
+    "skills": [
+      { "id": "explore", "path": "skills/explore/SKILL.md" },
+      { "id": "system-modeler", "path": "skills/system-modeler/SKILL.md" },
+      { "id": "flow-visualizer", "path": "skills/flow-visualizer/SKILL.md" },
+      { "id": "dependency-impact-analyzer", "path": "skills/dependency-impact-analyzer/SKILL.md" },
+      { "id": "deployment-topology-analyzer", "path": "skills/deployment-topology-analyzer/SKILL.md" },
+      { "id": "evolution-planner", "path": "skills/evolution-planner/SKILL.md" },
+      { "id": "risk-quality-reviewer", "path": "skills/risk-quality-reviewer/SKILL.md" },
+      { "id": "legacy-system-visualizer", "path": "skills/legacy-system-visualizer/SKILL.md" },
+      { "id": "architecture-communicator", "path": "skills/architecture-communicator/SKILL.md" },
+      { "id": "architecture-health", "path": "skills/architecture-health/SKILL.md" },
+      { "id": "c4model", "path": "skills/c4model/SKILL.md" },
+      { "id": "graphviz", "path": "skills/graphviz/SKILL.md" },
+      { "id": "drawio", "path": "skills/drawio/SKILL.md" }
+    ],
+    "agentTools": [
+      {
+        "name": "architecture_validate",
+        "description": "Validate model structure and evidence references; does not verify source file contents.",
+        "risk": "low",
+        "schema": { "type": "object", "properties": { "path": { "type": "string" } }, "required": ["path"] }
+      },
+      {
+        "name": "architecture_collect",
+        "description": "Read-only scan of the open workspace that returns an evidence-backed current-state model, its coverage and its unresolved items. It writes nothing.",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "scopeRoots": { "type": "array", "items": { "type": "string" }, "description": "Workspace-relative POSIX directories to scan; defaults to the whole workspace." },
+            "maxFiles": { "type": "integer", "minimum": 1, "description": "Maximum number of source files to read." }
+          }
+        }
+      },
+      {
+        "name": "architecture_query",
+        "description": "Read-only bounded queries over a validated model file: filter, neighbours, paths or complete cycles. Evidence references are not source-content verification.",
+        "risk": "low",
+        "schema": {
+          "type": "object", "additionalProperties": false, "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+            "mode": { "type": "string", "enum": ["filter", "neighbours", "paths", "cycles"] },
+            "targets": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } },
+            "from": { "type": "string", "minLength": 1, "maxLength": 1024 },
+            "to": { "type": "string", "minLength": 1, "maxLength": 1024 },
+            "ids": { "type": "array", "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } },
+            "types": { "type": "array", "maxItems": 7, "items": { "type": "string", "enum": ["actor", "system", "container", "component", "module", "datastore", "external"] } },
+            "statuses": { "type": "array", "maxItems": 4, "items": { "type": "string", "enum": ["confirmed", "inferred", "assumed", "unknown"] } },
+            "confidences": { "type": "array", "maxItems": 4, "items": { "type": "string", "enum": ["high", "medium", "low", "unknown"] } },
+            "minConfidence": { "type": "string", "enum": ["high", "medium", "low", "unknown"] },
+            "evidenceTypes": { "type": "array", "maxItems": 7, "items": { "type": "string", "enum": ["code", "config", "schema", "iac", "runtime", "document", "test"] } },
+            "maxSteps": { "type": "integer", "minimum": 1, "maximum": 100000 },
+            "evidencePath": { "type": "string", "minLength": 1, "maxLength": 1024 },
+            "direction": { "type": "string", "enum": ["upstream", "downstream", "both"] },
+            "relationTypes": { "type": "array", "maxItems": 7, "items": { "type": "string", "enum": ["depends_on", "calls", "reads", "writes", "publishes", "subscribes", "contains"] } },
+            "limit": { "type": "integer", "minimum": 0, "maximum": 2000 },
+            "maxDepth": { "type": "integer", "minimum": 1, "maximum": 32 },
+            "maxNodes": { "type": "integer", "minimum": 1, "maximum": 2000 },
+            "maxCycles": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "maxTimeMs": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "edgeEndpointsResolved": { "type": "boolean" }
+          }
+        }
+      },
+      {
+        "name": "architecture_impact",
+        "description": "Read-only bounded impact from explicit stable node IDs or evidence file paths. Branch/change-set lookup is unavailable and never inferred.",
+        "risk": "low",
+        "schema": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+            "targets": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } },
+            "direction": { "type": "string", "enum": ["upstream", "downstream", "both"] },
+            "relationTypes": { "type": "array", "maxItems": 7, "items": { "type": "string", "enum": ["depends_on", "calls", "reads", "writes", "publishes", "subscribes", "contains"] } },
+            "maxDepth": { "type": "integer", "minimum": 1, "maximum": 32 },
+            "maxNodes": { "type": "integer", "minimum": 1, "maximum": 2000 },
+            "maxTimeMs": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          }
+        }
+      },
+      {
+        "name": "architecture_compare",
+        "description": "Read-only comparison of two validated model snapshots by stable identity. Reports semantic differences and explicit evidence freshness signals, never inferred Git state.",
+        "risk": "low",
+        "schema": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "beforePath": { "type": "string", "minLength": 1, "maxLength": 1024 },
+            "afterPath": { "type": "string", "minLength": 1, "maxLength": 1024 }
+          }
+        }
+      },
+      {
+        "name": "architecture_snapshot_plan",
+        "description": "Read a validated model and plan a content-addressed immutable architecture snapshot. It writes nothing and never selects architecture/model.json.",
+        "risk": "low",
+        "schema": {
+          "type": "object", "additionalProperties": false, "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 1024 }
+          }
+        }
+      },
+      {
+        "name": "architecture_health",
+        "description": "Read-only architecture health findings from one validated model. It reports model-declared gaps and unverified limits; it never reads source content or writes files.",
+        "risk": "low",
+        "schema": {
+          "type": "object", "additionalProperties": false, "required": ["path"],
+          "properties": { "path": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+        }
+      }
+    ],
+    "settings": [
+      { "key": "maxFiles", "title": "Maximum files per analysis", "type": "number", "default": 500 }
+    ]
+  },
+  "permissions": ["ui.panel", "agent.prompt.inject", "agent.tool.register", "agent.extension", "fs.read"],
+  "fs": {
+    "read": { "root": "workspace", "scope": ["**/*"] }
+  },
+  "engines": { "piDesktop": ">=0.15.4" },
+  "activationEvents": ["onCommand:architecture-visualization.open", "onCommand:architecture-visualization.validate", "onCommand:architecture-visualization.collect"],
+  "entrypoints": { "onLoad": "main.js#onLoad", "onUnload": "main.js#onUnload" }
+}

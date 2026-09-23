@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "sample-billing",
+    "name": "Sample Billing Monolith"
+  },
+  "scope": {
+    "roots": [".", "src"]
+  },
+  "sourceRevision": "b7c1f2a9d4e5f60718293a4b5c6d7e8f90123456",
+  "generatedAt": "2024-05-01T09:30:00Z",
+  "coverage": {
+    "filesScanned": 42,
+    "complete": false
+  },
+  "nodes": [
+    {
+      "id": "sys.billing",
+      "name": "Billing System",
+      "type": "system",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": ["ev.readme"]
+    },
+    {
+      "id": "container.api",
+      "name": "Billing API",
+      "type": "container",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.readme", "ev.main"],
+      "parentId": "sys.billing"
+    },
+    {
+      "id": "module.invoice",
+      "name": "Invoice Module",
+      "type": "module",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.invoice"],
+      "parentId": "container.api"
+    },
+    {
+      "id": "datastore.billingdb",
+      "name": "Billing Database",
+      "type": "datastore",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "low",
+      "evidenceIds": []
+    },
+    {
+      "id": "actor.operator",
+      "name": "Billing Operator",
+      "type": "actor",
+      "state": "current",
+      "status": "unknown",
+      "confidence": "unknown",
+      "evidenceIds": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.api.invoice",
+      "source": "container.api",
+      "target": "module.invoice",
+      "type": "contains",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": ["ev.invoice"]
+    },
+    {
+      "id": "edge.invoice.db",
+      "source": "module.invoice",
+      "target": "datastore.billingdb",
+      "type": "writes",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": ["ev.invoice"]
+    },
+    {
+      "id": "edge.operator.api",
+      "source": "actor.operator",
+      "target": "container.api",
+      "type": "calls",
+      "state": "current",
+      "status": "unknown",
+      "confidence": "unknown",
+      "evidenceIds": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev.readme",
+      "path": "README.md",
+      "type": "document"
+    },
+    {
+      "id": "ev.main",
+      "path": "src/main.js",
+      "type": "code",
+      "line": 12
+    },
+    {
+      "id": "ev.invoice",
+      "path": "src/invoice/store.js",
+      "type": "code",
+      "line": 34
+    }
+  ],
+  "views": [
+    {
+      "id": "view.context",
+      "title": "System Context",
+      "kind": "c4-context",
+      "nodeIds": ["sys.billing", "actor.operator"]
+    }
+  ],
+  "findings": [],
+  "decisions": [],
+  "migrationSlices": [],
+  "unknowns": [
+    {
+      "id": "unknown.db.ownership",
+      "question": "Which team owns the billing database schema?",
+      "confidence": "unknown"
+    }
+  ]
+}

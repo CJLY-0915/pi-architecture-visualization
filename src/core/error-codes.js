@@ -1,0 +1,97 @@
+'use strict';
+
+// Stable diagnostic codes for architecture model validation and health checks.
+// Codes are protocol: callers (commands, agent tools, CI) switch on them, so an
+// existing code must never be renamed or repurposed; new rules add new codes.
+// CODE_MESSAGES holds the canonical description used in documentation and as a
+// fallback when a rule cannot build a contextual message.
+
+const CODES = Object.freeze({
+  MODEL_NOT_OBJECT: 'model_not_object',
+  MISSING_REQUIRED_FIELD: 'missing_required_field',
+  INVALID_TYPE: 'invalid_type',
+  EMPTY_STRING: 'empty_string',
+  INVALID_SCHEMA_VERSION: 'invalid_schema_version',
+  UNSUPPORTED_SCHEMA_VERSION: 'unsupported_schema_version',
+  INVALID_ENUM_VALUE: 'invalid_enum_value',
+  INVALID_ISO_DATETIME: 'invalid_iso_datetime',
+  INVALID_SCOPE_ROOT: 'invalid_scope_root',
+  INVALID_EVIDENCE_PATH: 'invalid_evidence_path',
+  EVIDENCE_OUT_OF_SCOPE: 'evidence_out_of_scope',
+  DUPLICATE_ID: 'duplicate_id',
+  UNKNOWN_EVIDENCE_REFERENCE: 'unknown_evidence_reference',
+  DANGLING_EDGE_ENDPOINT: 'dangling_edge_endpoint',
+  UNKNOWN_PARENT_NODE: 'unknown_parent_node',
+  HIERARCHY_CYCLE: 'hierarchy_cycle',
+  UNPROVEN_CONFIRMED_FACT: 'unproven_confirmed_fact',
+  EDGE_STATE_MISMATCH: 'edge_state_mismatch',
+  INVALID_POSITIVE_INTEGER: 'invalid_positive_integer',
+  INVALID_NON_NEGATIVE_INTEGER: 'invalid_non_negative_integer',
+  INTERNAL_ERROR: 'internal_error',
+  INVALID_OPTION: 'invalid_option',
+  SOURCE_LIST_FAILED: 'source_list_failed',
+  SOURCE_READ_FAILED: 'source_read_failed',
+  COLLECTION_TIMEOUT: 'collection_timeout',
+  FILE_LIMIT_REACHED: 'file_limit_reached',
+  FILE_TOO_LARGE: 'file_too_large',
+  SENSITIVE_PATH_SKIPPED: 'sensitive_path_skipped',
+  UNSAFE_PATH_SKIPPED: 'unsafe_path_skipped',
+  UNSUPPORTED_INPUT: 'unsupported_input',
+  UNRESOLVED_REFERENCE: 'unresolved_reference',
+  SOURCE_ROOTS_PARTIAL: 'source_roots_partial',
+  UNKNOWN_NODE: 'unknown_node',
+  CHANGE_SOURCE_UNAVAILABLE: 'change_source_unavailable',
+  COVERAGE_INCOMPLETE: 'coverage_incomplete',
+  DECLARED_UNKNOWN: 'declared_unknown',
+  MISSING_EVIDENCE: 'missing_evidence',
+  LOW_CONFIDENCE_FACT: 'low_confidence_fact',
+  UNKNOWN_CONFIDENCE_FACT: 'unknown_confidence_fact',
+});
+
+const CODE_MESSAGES = Object.freeze({
+  [CODES.MODEL_NOT_OBJECT]: 'The model must be a JSON object.',
+  [CODES.MISSING_REQUIRED_FIELD]: 'A required field is missing.',
+  [CODES.INVALID_TYPE]: 'A field has the wrong JSON type.',
+  [CODES.EMPTY_STRING]: 'A required string is empty or whitespace only.',
+  [CODES.INVALID_SCHEMA_VERSION]: 'schemaVersion must be an integer.',
+  [CODES.UNSUPPORTED_SCHEMA_VERSION]: 'The schemaVersion is not supported by this validator.',
+  [CODES.INVALID_ENUM_VALUE]: 'A value is outside the allowed set for its field.',
+  [CODES.INVALID_ISO_DATETIME]: 'generatedAt must be an ISO 8601 date-time with a timezone.',
+  [CODES.INVALID_SCOPE_ROOT]: 'A scope root is not a valid relative path.',
+  [CODES.INVALID_EVIDENCE_PATH]: 'An evidence path is not a valid relative POSIX path.',
+  [CODES.EVIDENCE_OUT_OF_SCOPE]: 'An evidence path is outside every declared scope root.',
+  [CODES.DUPLICATE_ID]: 'An id is declared more than once in the same collection.',
+  [CODES.UNKNOWN_EVIDENCE_REFERENCE]: 'An evidenceIds entry does not resolve to a declared evidence id.',
+  [CODES.DANGLING_EDGE_ENDPOINT]: 'An edge source or target does not resolve to a declared node id.',
+  [CODES.UNKNOWN_PARENT_NODE]: 'A node parentId does not resolve to a declared node id.',
+  [CODES.HIERARCHY_CYCLE]: 'Node parentId links form a cycle.',
+  [CODES.UNPROVEN_CONFIRMED_FACT]: 'A confirmed node or edge has no declared evidence.',
+  [CODES.EDGE_STATE_MISMATCH]: 'An edge state differs from the state of one of its endpoints.',
+  [CODES.INVALID_POSITIVE_INTEGER]: 'A field must be a positive integer when present.',
+  [CODES.INVALID_NON_NEGATIVE_INTEGER]: 'A field must be a non-negative integer.',
+  [CODES.INTERNAL_ERROR]: 'The validator failed unexpectedly; the input was not validated.',
+  [CODES.INVALID_OPTION]: 'A collector option is missing or invalid and a safe default was used instead.',
+  [CODES.SOURCE_LIST_FAILED]: 'The injected source could not list the workspace files.',
+  [CODES.SOURCE_READ_FAILED]: 'The injected source could not read a listed file.',
+  [CODES.COLLECTION_TIMEOUT]: 'Collection stopped because it exceeded the injected timeout budget.',
+  [CODES.FILE_LIMIT_REACHED]: 'Collection stopped early because a file count or character budget limit was reached.',
+  [CODES.FILE_TOO_LARGE]: 'A file was skipped because it exceeded the per-file character limit.',
+  [CODES.SENSITIVE_PATH_SKIPPED]: 'A path matching a sensitive pattern was skipped without being read.',
+  [CODES.UNSAFE_PATH_SKIPPED]: 'A path that is not a safe workspace-relative POSIX path was skipped without being read.',
+  [CODES.UNSUPPORTED_INPUT]: 'The input uses a construct this collector does not model, so nothing was inferred from it.',
+  [CODES.UNKNOWN_NODE]: 'A referenced node id is not declared in the model.',
+  [CODES.UNRESOLVED_REFERENCE]: 'A reference could not be resolved to a scanned file or a declared dependency.',
+  [CODES.SOURCE_ROOTS_PARTIAL]: 'Additional project roots were not reachable from the current file session.',
+  [CODES.CHANGE_SOURCE_UNAVAILABLE]: 'No change source was supplied, so nothing can be said about what changed since the model was captured.',
+  [CODES.COVERAGE_INCOMPLETE]: 'coverage.complete is false, so the model does not cover its whole declared scope.',
+  [CODES.DECLARED_UNKNOWN]: 'The model records an unresolved unknown.',
+  [CODES.MISSING_EVIDENCE]: 'A node or edge declares no evidence at all.',
+  [CODES.LOW_CONFIDENCE_FACT]: 'A node or edge is held with low confidence.',
+  [CODES.UNKNOWN_CONFIDENCE_FACT]: 'A node or edge has unknown confidence.',
+});
+
+function isKnownCode(code) {
+  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(CODE_MESSAGES, code);
+}
+
+module.exports = { CODES, CODE_MESSAGES, isKnownCode };

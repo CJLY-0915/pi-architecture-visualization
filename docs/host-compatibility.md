@@ -1,0 +1,77 @@
+# PI-Desktop 宿主兼容性记录
+
+本文件记录架构可视化插件在开始核心实现前，对 PI-Desktop 插件合同的核验结果。规格文档描述的是目标能力；只有经过当前宿主或 `PluginCheck` 明确验证的项目，才能在插件中作为已实现能力使用。
+
+## 核验基线
+
+- 插件目录：`E:\Program\pi-desktop-plugin\architecture-visualization`
+- 插件 ID：`local.architecture-visualization`
+- 当前插件版本：`0.1.0`
+- 核验工具：PI-Desktop `PluginCheck`；宿主实现核验来源 `D:\Program Files\PI-Desktop\resources\app.asar`
+- 宿主版本：PI-Desktop **0.15.4**（`D:\\Program Files\\PI-Desktop\\resources\\app.asar` 内 `package.json`，用 asar 头偏移读取）；`engines.piDesktop` 已由虚假的 `>=0.1.0` 修正为 `>=0.15.4`
+- 生效形态：开发源即生效源，已通过插件页“加载本地插件”注册为 dev 插件（注册表 `source=dev`、`permissions` 含 `agent.extension`、`capabilities` 含 `agentExtension`，且只有一条条目）。原安装态副本 `C:\\Users\\DIY\\.pi-desktop\\plugins\\installed\\local.architecture-visualization` 已无注册表条目，成为磁盘孤儿副本，删除需用户明确同意
+- 核验结果：当前工作区 `PluginCheck` 无错误通过（包含本轮留在 `Temp/` 的一次性打包镜像）；不含 `.pi`/`Temp` 的清洁镜像经官方校验为 70 文件。官方 `PluginPack` 已生成并审计 `dist/` 中的最终清洁交付包；宿主打包器本身不会排除 `.pi/` 或 `Temp/`，故正式包必须来自该干净镜像。审计确认包内没有 `.pi`、缓存/临时目录、凭据形文件、`node_modules`、网络权限或远程 CDN。
+- 开发源已初始化为 Git 仓库（`main` 分支，本轮 `git init` + 首次提交），`.gitignore` 排除 `Temp/`、`dist/`、`.pi/`、`node_modules/`
+- 宿主版本已取得（0.15.4）；完整独立的宿主 panel E2E 运行报告仍未取得
+
+## 已核验合同
+
+| 能力 | 当前状态 | 依据 |
+| --- | --- | --- |
+| `manifest.json` 基本结构 | 已通过 | `PluginCheck` |
+| `main.js` 入口文件 | 已通过 | `PluginCheck` |
+| `renderer/index.html` 面板入口 | 已通过目录与安装规则检查、受控 fixture bridge 全流程演练；用户已在已安装 r6 的真实面板确认核心只读操作 | `PluginCheck`；本地浏览器预览；用户面板 E2E；`tests/panel-interactions.test.js` |
+| 13 个技能文件路径 | 已通过 | `PluginCheck` |
+| 命令贡献声明 | 已通过 | `PluginCheck` |
+| `architecture_validate` / `architecture_collect` 工具声明 | 已通过，前两者曾在真实宿主调用 | `PluginCheck`；既有宿主调用 |
+| `architecture_query` / `architecture_impact` / `architecture_compare` 工具声明、注册与回滚 | 已在真实宿主调用；panel 调用仅经静态协议核验与本地模拟 | 真实既有工具调用；`tests/analysis-tools.test.js`、`tests/host-adapter.test.js`；`app.asar` `onPanelInvoke` 协议 |
+| `architecture_snapshot_plan` 无副作用快照规划 | 已在真实宿主调用；零写入 | 对 `fixtures/valid-minimal-model.json` 返回 SHA-256 内容地址路径；调用方确认无写入；未申请 `fs.write` |
+| `architecture_health` 模型健康工具 | 低风险声明、模拟宿主执行、可解析无效模型诊断与 panel 白名单/交互测试通过；**已在真实 Agent 调用**，panel E2E 待完成 | 真实 `plugin_local_architecture_visualization_architecture_health` 对最小模型返回 8 条受限发现；`manifest.json`；`src/host/health-tool.js`；`tests/health.test.js`、`tests/host-adapter.test.js`、`tests/panel-interactions.test.js` |
+| `pi.workspace.get()` 返回 `{path, name}` | 已在真实宿主验证 | 宿主调用；`app.asar` 中 `pluginWorkspaceInfo` |
+| `pi.fs.list(pathFromRoot)`（`{name, path, isDirectory, size, mtimeMs}[]`，单目录 1000 条上限） | 已在真实宿主验证 | 宿主 `architecture_collect` 实际调用；`app.asar` broker |
+| `pi.fs.readText(pathFromRoot)` | 已在真实宿主验证 | `architecture_validate` 与采集均实际调用 |
+| `pi.fs.stat(pathFromRoot)` → `{size, mtimeMs}`（仅文件） | 已核验并用于模型读取前大小拒绝；真实新工具调用待验证 | `app.asar` broker；`src/host/read-model.js` |
+| `pi.fs.glob(pattern)`（500 条上限，readdir 顺序） | 已核验但不采用 | `app.asar` broker（`MAX_GLOB_MATCHES`） |
+| `ui.panel` 面板权限 | 已声明 | `manifest.json` |
+| P6 只读模型浏览、查询/影响/比较、内存导出与健康展示 | 受控 fixture bridge 与用户真实 panel 已验证核心成功路径，Node 交互模拟与白名单测试通过；生命周期/拒绝/超限仍待逐项验证 | `renderer/index.html`；`tests/panel-interactions.test.js`、`tests/host-adapter.test.js`；用户面板 E2E |
+| `agent.prompt.inject` 技能权限 | 已声明 | `manifest.json` |
+| `agent.tool.register` 工具权限 | 已声明 | `manifest.json` |
+| `agent.extension` 权限与 `contributes.agentExtensions` | 已在真实宿主注册并随 dev 热重载重注册 | `manifest.json`；注册表 `permissions`/`capabilities`；`logs/app/plugin.log` 中 `plugin.reload.success`、无 `plugin.agentExtensions.skipped` |
+| `before_agent_start` 常驻路由规则 | 宿主合同已核验；规则文本与幂等性由单测覆盖，尚未从日志侧直接观测提示文本 | `app.asar` `registerAgentExtensions`（无权限即审计 `PERMISSION_DENIED` 后 return；`realpathSync` 作 id）；`sidecar.js` `loadExtensionModule`（jiti 取默认导出，非函数即报 `Extension does not export a valid factory function`）、`TRUSTED_EXTENSION_EVENT_CAPABILITIES.before_agent_start = "result"`、handler 合并 `(acc,next)=>({...acc ?? {}, ...next})`；`extensions/workflow-rule.mjs`；`tests/agent-extension.test.js` |
+| 技能 ID 派生规则 | 已核验并修正 | `app.asar` `skillIdFromPath` 只取文件基名；13 个 `SKILL.md` 曾得到同一 id `local.architecture-visualization/skill`，仅首个注册、其余 12 条审计 `DUPLICATE`。改为显式 `id` 后 `logs/app/plugin.log` 记录 `plugin.skills.register count=13`；回归见 `tests/manifest-contract.test.js` |
+| `pi.fs.writeText(pathFromRoot, content)` | 已核验，**暂不采用** | `app.asar` broker：`resolveFsRequest(..., "write", {create:true})`、递归建目录、`writeFileSync` 直接覆盖；无 exclusive-create、CAS、原子 rename 或事务 API |
+| `fs.write` 架构目录写入范围 | 未申请，P5 仅实现无副作用保存规划 | 宿主缺少安全发布原语；不以先检查后覆盖伪装并发安全 |
+
+## 尚需在实际宿主验证
+以下项目不能仅凭目录检查视为已实现：
+
+1. 插件能在当前 PI-Desktop 版本中加载、启用、禁用和卸载。
+2. `onLoad` / `onUnload` 的命令注册和注销行为，以及异常时的清理行为。
+3. `pi.fs.list` / `readText` 已在真实宿主调用通过（`architecture_collect` 与 `architecture_validate`），但权限拒绝、会话切换与越界读写仍未在宿主中逐项验证。
+4. `pi.ui.openPanel` 的重复打开、关闭和宿主销毁；以及 P6 `window.pluginBridge.invoke(...)` 的权限拒绝与超限状态。用户已确认 `workspace.get`、`fs.stat`、`fs.readText` 和五个固定 `architecture.*` 通道的核心成功路径。
+5. `window.pluginBridge.invoke('ui.showToast', ...)` 的实际桥接行为。
+6. Agent 工具在 Agent 模式中的超时、禁用和 Plan 模式拒绝行为；`architecture_health` 的最小真实调用已通过，既有 query/impact/compare 的最终 Manifest schema 仍应在完整插件重载后复核。
+7. 技能目录与正文按需加载：13 个技能已在真实宿主注册（`count=13`，系统提示技能目录随之更新）；单个场景技能正文按需加载仍需下一轮会话确认。
+8. `pi.fs` 的符号链接 containment 与敏感文件拒绝：宿主 broker 已实现（含 `.git`/`node_modules`/`.venv`/`__pycache__` 跳过与凭据路径屏蔽），本插件未独立验证重解析点逃逸。
+9. `manifest.i18n`、设置页、明暗主题和面板拖拽带在当前宿主中的呈现。
+10. 开发目录热重载已验证（改 `manifest.json` 后宿主自动 `plugin.unload` → `plugin.load.success` → `plugin.reload.success`）；权限扩大时的重新审核（`reloadDevPlugin` 抛 `PERMISSION_DENIED` 并要求回插件页确认）仅经代码核验，未实机触发。
+11. `PluginPack` 生成的 `.piplug` 安装、禁用、升级和卸载回归。
+
+## 当前检查警告
+
+`PluginCheck` 当前报告两类提醒，都不是错误：
+
+- `agent.prompt.inject` 和 `agent.tool.register` 属于高风险权限，安装启用时需显式授予。注册表已记录用户对这两项以及 `agent.extension` 的显式授予；`PluginCheck` 的提醒针对的是打包分发路径（已安装插件没有 dev 插件的权限审查 UI），装机时必须在安装流程中呈现权限清单。
+- 打包器会剔除凭据形文件并给出 `package.secret-skipped` 提醒：`.env*` 与私钥类文件不会进入 `.piplug`。因此仓库内不提交凭据形 fixture，敏感路径跳过改由内存测试覆盖。
+
+**已修正的宿主陷阱**：`contributes.skills` 只写路径时，宿主用 `skillIdFromPath` 取文件基名派生 id。本插件 13 个技能都叫 `SKILL.md`，于是共享同一个 id，只有首个注册成功，其余被审计为 `DUPLICATE` 静默跳过——即技能目录看似声明完整，实际只有 1/13 到达模型。现在每条声明都带显式 `id`（取所在目录名），并有 `tests/manifest-contract.test.js` 守护：显式 id 必须存在、唯一、等于目录名，并复现宿主派生规则会撞号这一事实。宿主自身的“导入扩展”脚手架也用哈希 id 规避同一问题（`app.asar` `out/main/index.js` 56613–56617）。
+
+入口通过共享的只读 `readModel` 适配器使用 `pi.fs.stat`（读取前 2 MiB 限制）和 `pi.fs.readText`；`fs.write` 未申请。健康入口对已解析但无效的 JSON（包括 `null`）保留验证诊断，其他分析仍严格拒绝无效模型。Node 内置测试覆盖模型校验、模拟宿主入口、只读采集器、查询/环路/影响预算、比较合同、P4 工具、P6 panel 白名单/交互与内存导出、P7 健康检查、无副作用快照规划的路径、参数、读取前大小、响应上限与生命周期回滚，以及 manifest 贡献合同（技能显式 id、agent 扩展声明）与零依赖常驻规则的幂等性；`npm test` 显式运行 `tests/*.test.js`（不能用 `node --test tests`，本机 Node 会把目录当模块加载），本轮为 223/223。它们不替代上文已记录的真实 P4/P5 工具调用，也不能覆盖其余宿主生命周期场景。
+
+## 下一步核验顺序
+
+1. 在实际 PI-Desktop 中加载开发插件，记录宿主版本和加载结果。
+2. 验证命令、面板、技能和工具的最小闭环。
+3. 根据实际桥接结果冻结 `docs/host-compatibility.md` 的已支持 API 清单。
+4. 模型 schema 和内部工具 `architecture_validate` 已实现；在实际宿主核验读取、权限和工具调用，确认公开工具名的 `plugin_` 前缀不被插件代码重复添加。
+5. 已生成 `.piplug`；在干净环境完成安装、启用、升级、禁用和卸载回归后，才可将分发包视为宿主 E2E 通过。

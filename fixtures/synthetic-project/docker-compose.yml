@@ -1,0 +1,7 @@
+services:
+  api:
+    image: node:20
+    depends_on:
+      - db
+  db:
+    image: postgres:16
