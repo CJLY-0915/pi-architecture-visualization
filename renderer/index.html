@@ -189,15 +189,16 @@
       <input id="model-path" class="path-input" name="modelPath" value="architecture/model.json" autocomplete="off" spellcheck="false" aria-describedby="path-help" />
       <button class="button primary" id="load-button" type="submit">读取模型</button>
     </form>
-    <p id="path-help" class="workspace-note">路径相对于已打开的工作区；面板不会自行生成或保存模型。</p>
+    <p id="path-help" class="workspace-note">路径相对于已打开的工作区；面板不保存模型文件——采集生成的模型只在内存，读取则只读已有文件。</p>
     <section id="collect" aria-labelledby="collect-heading">
-      <header class="collect-header"><div><h2 id="collect-heading">采集探测</h2><p>扫描当前工作区，只读、不写入。用来看采集器能自动看到什么、盲区报在哪里；完整模型只在内存，不落盘，也不会载入下方的浏览器。</p></div><span class="read-only">不写入</span></header>
+      <header class="collect-header"><div><h2 id="collect-heading">采集并生成模型</h2><p>扫描当前工作区并当场生成一份架构模型，只读、不写入任何文件。生成后下方阅读器立即可用：浏览节点、查图、跑影响、看健康、导出 JSON。模型只在内存，关闭面板即消失。</p></div><span class="read-only">不写入</span></header>
       <form id="collect-form" class="collect-form" novalidate>
         <input id="collect-roots" class="field" placeholder="范围根目录（留空 = 整个工作区）" aria-label="采集范围根目录" />
         <input id="collect-max" class="field" type="number" min="1" placeholder="最多文件数（默认 500）" aria-label="采集最多文件数" />
-        <button class="button secondary" id="collect-submit" type="submit">运行采集探测</button>
+        <button class="button secondary" id="collect-submit" type="submit">采集并生成模型</button>
       </form>
-      <div id="collect-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未运行采集。</div>
+      </form>
+      <div id="collect-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未采集。点“采集并生成模型”即可，无需先在会话里让 agent 建模。</div>
       <div id="collect-results" class="analysis-results" aria-live="polite"></div>
     </section>
 
@@ -209,7 +210,7 @@
       <section class="app-grid" aria-label="架构模型浏览器">
         <section class="archive" aria-labelledby="project-name">
           <header class="project-strip">
-            <p class="project-kicker">当前档案</p>
+            <p class="project-kicker">当前档案 · <span id="model-source">未载入</span></p>
             <h2 class="project-name" id="project-name">—</h2>
             <dl class="metadata">
               <div><dt>source revision</dt><dd id="source-revision">未提供</dd></div>
@@ -265,11 +266,11 @@
       "use strict";
       const MAX_MODEL_BYTES = 2 * 1024 * 1024;
       const DEFAULT_PATH = "architecture/model.json";
-      const state = { model: null, path: DEFAULT_PATH, selectedId: null };
+      const state = { model: null, path: DEFAULT_PATH, modelSource: null, selectedId: null };
       const $ = (id) => document.getElementById(id);
       const ui = {
         form: $("load-form"), path: $("model-path"), load: $("load-button"),
-        status: $("status"), reader: $("reader"), projectName: $("project-name"),
+        status: $("status"), reader: $("reader"), projectName: $("project-name"), modelSource: $("model-source"),
         revision: $("source-revision"), generated: $("generated-at"), coverage: $("coverage-value"), warning: $("coverage-warning"),
         nodes: $("node-count"), edges: $("edge-count"), evidence: $("evidence-count"), resultCount: $("result-count"),
         search: $("search"), type: $("type-filter"), statusFilter: $("state-filter"), confidence: $("confidence-filter"), list: $("node-list"),
@@ -293,12 +294,23 @@
         const blind = array(result.unresolved).concat(array(result.diagnostics)).map((item) => `${item.code} · ${item.path || "（无路径）"}${item.message ? ` — ${item.message}` : ""}`);
         ui.collectResults.append(resultCard("采集器盲区与诊断", blind.length ? blind : ["本次采集未报告未解析项或诊断。"], blind.length ? "warning" : ""));
         if (result.truncated) ui.collectResults.append(resultCard("结果上限", [result.truncated, result.truncatedNote || ""], "warning"));
-        ui.collectResults.append(resultCard("边界", ["仅内存摘要：完整模型没有写入磁盘，也没有载入本界面。要浏览、查询与导出，先落盘 architecture/model.json 再读取。", "证据内容与源文件真实性未重新验证。"], "warning"));
-        setCollectStatus("ready", "采集完成（只读）。上方为摘要与盲区；完整模型未落盘。");
+        ui.collectResults.append(resultCard("边界", ["模型只在内存：没有写入磁盘。下方阅读器已载入这份采集结果，可直接浏览、查询、影响分析与导出；关闭面板后不保留。", "证据内容与源文件真实性未重新验证。", "要长期保留，请把导出预览的 JSON 存成 architecture/model.json 后重新读取。"], "warning"));
+        setCollectStatus("ready", "采集完成（只读）。摘要与盲区在上方；完整模型已载入下方阅读器，可直接查询与导出。");
+      }
+      // A collected model becomes the active one, so a fresh scan is browsable
+      // and analysable without anyone writing a file first. Nothing is kept:
+      // reloading the panel drops it, which is what "in memory" has to mean.
+      function adoptCollectedModel(result) {
+        if (!result || result.ok !== true || !result.model) return;
+        const problem = diagnose(result.model);
+        if (problem) { setCollectStatus("error", `采集结果未通过面板结构检查：${problem} 不载入阅读器。`); return; }
+        state.model = result.model; state.modelSource = "collected"; state.selectedId = null; ui.modelSource.textContent = "来自本次采集（未落盘）";
+        displayModel();
+        setCollectStatus("ready", "采集完成（只读）。摘要与盲区在上方；完整模型已载入下方阅读器，可直接查询与导出。");
       }
       async function runCollect(event) {
         event.preventDefault();
-        const request = {};
+        const request = { includeModel: true };
         const roots = splitValues(ui.collectRoots.value);
         if (roots.length) request.scopeRoots = roots;
         const max = ui.collectMax.value.trim();
@@ -309,7 +321,7 @@
         }
         ui.collectSubmit.disabled = true;
         setCollectStatus("loading", "正在扫描工作区；不会写入…");
-        try { renderCollect(await bridgeInvoke("architecture.collect", request)); }
+        try { const result = await bridgeInvoke("architecture.collect", request); renderCollect(result); adoptCollectedModel(result); }
         catch (error) { renderCollect({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } }); }
         finally { ui.collectSubmit.disabled = false; }
       }
@@ -469,16 +481,19 @@
         if (kind === "health") { const findingCount = result.counts && Number.isInteger(result.counts.findings) ? result.counts.findings : array(result.findings).length; const title = result.ok ? (findingCount ? "模型合同通过；存在健康发现" : "模型合同通过；未记录健康发现") : "模型合同未通过"; const tone = result.ok ? (findingCount ? "warning" : "") : "error"; ui.analysisResults.append(resultCard(title, [result.counts || {}], tone)); ui.analysisResults.append(resultCard("健康发现", array(result.findings).map((item) => `${item.severity}/${item.category} · ${item.code} · ${item.kind || "model"}${item.id ? `:${item.id}` : ""}${item.field ? `/${item.field}` : ""} — ${item.message}`), tone)); ui.analysisResults.append(resultCard("未验证状态", [result.unverified || {}, ...array(result.limitations)], "warning")); }
         setAnalysisStatus("ready", "只读分析完成。所有范围限制、停止原因与未验证状态均已列出。");
       }
-      async function runAnalysis(channel, payload, kind, label) { if (!state.model) { setAnalysisStatus("error", "请先成功读取一个模型，再执行分析。"); return; } setAnalysisBusy(true); setAnalysisStatus("loading", `正在执行${label}；不会写入工作区…`); try { renderAnalysis(kind, await bridgeInvoke(channel, payload)); } catch (error) { renderAnalysis(kind, { ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } }); } finally { setAnalysisBusy(false); } }
-      function queryRequest() { const mode = ui.queryMode.value; const targets = splitValues(ui.queryTargets.value); if ((mode === "neighbours" || mode === "paths") && !targets.length) return null; if (mode === "paths" && !ui.queryTo.value.trim()) return null; const request = { path: state.path, mode, maxNodes: 150, maxDepth: 8, maxSteps: 5000 }; if (mode === "neighbours") request.targets = targets; if (mode === "paths") { request.from = targets[0]; request.to = ui.queryTo.value.trim(); } if (mode === "cycles") request.maxCycles = 20; return request; }
+      async function runAnalysis(channel, payload, kind, label) { if (!state.model) { setAnalysisStatus("error", "请先成功读取或采集一个模型，再执行分析。"); return; } setAnalysisBusy(true); setAnalysisStatus("loading", `正在执行${label}；不会写入工作区…`); try { renderAnalysis(kind, await bridgeInvoke(channel, modelRequest(payload))); } catch (error) { renderAnalysis(kind, { ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } }); } finally { setAnalysisBusy(false); } }
+      // A model collected in this session travels whole so the host analyses it
+      // without a file existing; a file-backed one stays addressed by path.
+      function modelRequest(extra) { return state.modelSource === "collected" ? { ...extra, model: state.model } : { ...extra, path: state.path }; }
+      function queryRequest() { const mode = ui.queryMode.value; const targets = splitValues(ui.queryTargets.value); if ((mode === "neighbours" || mode === "paths") && !targets.length) return null; if (mode === "paths" && !ui.queryTo.value.trim()) return null; const request = { mode, maxNodes: 150, maxDepth: 8, maxSteps: 5000 }; if (mode === "neighbours") request.targets = targets; if (mode === "paths") { request.from = targets[0]; request.to = ui.queryTo.value.trim(); } if (mode === "cycles") request.maxCycles = 20; return request; }
       ui.queryForm.addEventListener("submit", (event) => { event.preventDefault(); const request = queryRequest(); if (!request) { setAnalysisStatus("error", "邻居查询需要目标 ID；路径查询还需要明确终点 ID。不会猜测目标。"); return; } runAnalysis("architecture.query", request, "query", "图查询"); });
-      ui.impactForm.addEventListener("submit", (event) => { event.preventDefault(); const targets = splitValues(ui.impactTargets.value); if (!targets.length) { setAnalysisStatus("error", "影响分析需要明确节点 ID 或已声明证据路径。不会猜测变更。"); return; } runAnalysis("architecture.impact", { path: state.path, targets, direction: ui.impactDirection.value, maxDepth: 8, maxNodes: 150 }, "impact", "影响分析"); });
+      ui.impactForm.addEventListener("submit", (event) => { event.preventDefault(); const targets = splitValues(ui.impactTargets.value); if (!targets.length) { setAnalysisStatus("error", "影响分析需要明确节点 ID 或已声明证据路径。不会猜测变更。"); return; } runAnalysis("architecture.impact", { targets, direction: ui.impactDirection.value, maxDepth: 8, maxNodes: 150 }, "impact", "影响分析"); });
       ui.compareForm.addEventListener("submit", (event) => { event.preventDefault(); const beforePath = ui.compareBefore.value.trim(); const afterPath = ui.compareAfter.value.trim(); if (!beforePath || !afterPath) { setAnalysisStatus("error", "快照比较需要两个明确的工作区相对模型路径。不会推断 Git 或分支。"); return; } runAnalysis("architecture.compare", { beforePath, afterPath }, "compare", "快照比较"); });
-      ui.exportForm.addEventListener("submit", (event) => { event.preventDefault(); const request = { path: state.path, format: ui.exportFormat.value }; if (ui.exportFormat.value === "c4") { const focus = ui.exportFocus.value.trim(); if (focus) request.focus = focus; request.level = Number(ui.exportLevel.value); } runAnalysis("architecture.exportPreview", request, "export", "内存导出预览"); });
-      ui.healthForm.addEventListener("submit", (event) => { event.preventDefault(); runAnalysis("architecture.health", { path: state.path }, "health", "架构健康检查"); });
+      ui.exportForm.addEventListener("submit", (event) => { event.preventDefault(); const request = { format: ui.exportFormat.value }; if (ui.exportFormat.value === "c4") { const focus = ui.exportFocus.value.trim(); if (focus) request.focus = focus; request.level = Number(ui.exportLevel.value); } runAnalysis("architecture.exportPreview", request, "export", "内存导出预览"); });
+      ui.healthForm.addEventListener("submit", (event) => { event.preventDefault(); runAnalysis("architecture.health", {}, "health", "架构健康检查"); });
       async function loadModel(path) {
         const trimmed = String(path || "").trim();
-        state.model = null; state.selectedId = null; ui.reader.hidden = true;
+        state.model = null; state.modelSource = null; state.selectedId = null; ui.reader.hidden = true;
         if (!trimmed) { setStatus("error", "请输入模型相对路径后再读取。"); ui.path.focus(); return; }
         ui.path.value = trimmed; setBusy(true); setStatus("loading", `正在从工作区读取 ${trimmed}…`);
         try {
@@ -493,7 +508,7 @@
           let model;
           try { model = JSON.parse(raw); } catch (error) { setStatus("error", `JSON 损坏：${error.message || "无法解析文件内容"}`); return; }
           const problem = diagnose(model); if (problem) { setStatus("error", `结构无效：${problem} 面板仅呈现通过 v1 基础合同检查的模型。`); return; }
-          state.model = model; state.path = trimmed; state.selectedId = null; displayModel(); setStatus("ready", `已只读载入 ${trimmed}。可筛选节点并选择一项查看模型中记录的关联线索。`);
+          state.model = model; state.path = trimmed; state.modelSource = "file"; state.selectedId = null; ui.modelSource.textContent = `来自文件 ${trimmed}`; displayModel(); setStatus("ready", `已只读载入 ${trimmed}。可筛选节点并选择一项查看模型中记录的关联线索。`);
         } catch (error) { setStatus("error", `${errorKind(error)}：${String(error.message || error)}`); }
         finally { setBusy(false); }
       }

@@ -148,3 +148,32 @@
 - **实际保存/发布未实现**：宿主 `pi.fs.writeText` 是直接覆盖，没有原子替换或条件写入。
 - **命令注销（A4）只有单测覆盖**，未在真实宿主确认。
 - 三个采集适配器均为面向行的启发式，不是完整解析器。
+
+## [1.3.0] - 2026-09-23
+
+采集即得模型：面板里的一个按钮直接生成可用的架构模型，不必先在会话里让 agent 建模，也不落盘。
+
+### 新增
+
+- **采集结果当场成为活动模型**：`architecture.collect` 接受 `includeModel`，除原有界摘要外一并回传完整模型；面板把它载入阅读器，节点列表、筛选、详情、证据、关联边与 unknowns 立即可用，图查询、影响分析、健康检查与导出预览都在这份模型上跑。全程不写任何文件。
+- **内存模型分析通道**：`architecture.query`、`architecture.impact`、`architecture.health`、`architecture.exportPreview` 的面板入口接受 `model` 字段代替 `path`。主进程对回传的模型重新跑 `validateModel`，结构性不合格直接拒绝，不分析。
+- 阅读器头部显示模型来源（`来自文件 <path>` 或 `来自本次采集（未落盘）`），有界摘要与已保存文件不会被误认。
+- `architecture.compare` 仍然只读两个文件，并明确拒绝内存模型，不猜变更来源。
+
+### 安全边界
+
+- **Agent 工具契约不变**：三个分析工具的 schema 都是 `additionalProperties: false`，`model` 字段在到达主进程前就被拒绝。内存模型这条路只有面板能走，回归测试固定了这一点。
+- inline 模型沿用文件模型的 2 Mi 字符预算，超限报 `MODEL_TOO_LARGE`，不静默截断。
+
+### 已知限制（记录在案，未修复）
+
+- **`architecture.collect` 面板通道尚未在真实宿主点击过**：代码路径与 Node 侧测试已覆盖，实机确认仍缺（`docs/host-acceptance.md` A14）。
+- **采集的模型无法从面板存成文件**：宿主 `pi.fs.writeText` 是直接覆盖，没有原子替换、排他创建或条件写入。要长期保留，请用导出预览的 JSON 自行保存后重新读取。内容寻址快照方案已记录在 `architecture/decisions/no-safe-publish-primitive.md`，等 `fs.write` 授权。
+- **右侧停靠视图的生命周期细节未逐项演练**：重复打开/关闭后的残留注册与重复面板未单独检查。
+- **采集器读取但不建模的文件类型静默无诊断**：`.properties`/`.sh`/`.py` 已记录，未扩适配器。
+- **Java/Maven/Gradle 依赖采集未实现**：只保证不静默忽略。
+- **模型不是完整 C4 形状**：L4（Code）刻意不切；`datastore` 映射为 C4 `container`。
+- **Draw.io 导出器仍不表达证据正文与 id-only 集合**。
+- **`actor` 一律映射为 C4 `person`**：非人类执行者需在模型侧改用 `external` 类型。
+- **命令注销（A4）只有单测覆盖**，未在真实宿主确认。
+- 三个采集适配器均为面向行的启发式，不是完整解析器。

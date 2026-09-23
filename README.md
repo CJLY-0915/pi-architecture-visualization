@@ -1,8 +1,16 @@
 # 架构可视化
 
-PI-Desktop 插件：把一个代码仓库变成一份**每个结论都带证据**的架构事实模型，并在这份模型上做只读的查询、影响分析、健康检查与导出。
+PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条结论都挂 `file:line` 出处和 `confirmed`/`inferred`/`assumed`/`unknown` 分级——查不到证据就明说不知道，不画成确认的框；采集器看不见的（动态 `import()`、字符串键派发、Java 构建文件）报 `unsupported_input`，不安静地产出一张看起来完整的空图。在这份模型之上做只读的查询、影响分析、健康检查与导出。
 
-仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main`；推送到 `main` 或开 PR 会触发三平台 CI）。版本 **1.1.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；完整定位、场景与价值论证见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
+仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main`；推送到 `main` 或开 PR 会触发三平台 CI）。版本 **1.2.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；完整定位、场景与价值论证见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
+
+## 三个你马上能做的事
+
+1. **改代码之前问"这会影响谁"**：给出受影响节点列表，每条带 `status`/`confidence`——你知道哪些是确认的依赖、哪些是推断的、哪些它根本没看见。这直接决定你 review 时重点看谁，而不是拿到一个"看起来很完整"的列表放松警惕。
+2. **接手陌生仓库先问"哪里是坑"**：`legacy-system-visualizer` 的清单**开篇是未知项**，每条带责任角色和定案步骤，然后才是已观测事实（各带 `file:line`）。新人最先需要的不是"系统由什么组成"，是"什么说法不可信"。
+3. **架构评审时问"这句话凭什么这么说"**：每个节点和每条边都能一路点到 `file:line`。文档说支持 X、代码里三年前就消失了——这种事以前没人能证明，现在能。
+
+如果只想快速知道系统大概是什么，直接问 AI 更快——这个插件是给**需要核对**的场景。
 
 ## 它解决什么问题
 
@@ -21,7 +29,7 @@ PI-Desktop 插件：把一个代码仓库变成一份**每个结论都带证据*
 | 入口 | 怎么做 | 适合 |
 | --- | --- | --- |
 | **技能（对话）** | 直接描述问题；常驻路由把架构类问题送到 `Architecture Explore`，由它选 12 个场景技能之一 | 绝大多数情况，不需要记工具名 |
-| **工作面板** | 右侧工作面板的"架构可视化"标签页，或命令面板搜 `Architecture: Open Workbench` | 边读边查：采集探测、读模型、查图、跑影响、比快照、看导出预览与健康发现 |
+| **工作面板** | 右侧工作面板的"架构可视化"标签页，或命令面板搜 `Architecture: Open Workbench` | 采集即得模型：一键生成后当场浏览、查图、跑影响、看健康、导出；也可以读取已有的模型文件 |
 | **Agent 工具** | `architecture_validate` / `architecture_collect` / `architecture_query` / `architecture_impact` / `architecture_compare` / `architecture_snapshot_plan` / `architecture_health` | 脚本化、CI 里跑 |
 
 可以直接问技能的典型问题：
@@ -37,7 +45,7 @@ PI-Desktop 插件：把一个代码仓库变成一份**每个结论都带证据*
 | 接手一个没人懂的遗留系统 | 未知项优先的清单，开篇即未知项 |
 | 给我一份能自己改的图 | `.drawio`，非确认事实带三重标记 |
 
-面板最小三步：还没有模型时先点"运行采集探测"看采集器能看见什么（只读、不落盘）→ 有模型后路径填入模型（默认 `architecture/model.json`）点"读取模型" → 在图查询或影响分析里提交一个节点 ID。导出预览只是内存文本：不保存、不下载、不写工作区。
+面板最小三步：点"采集并生成模型"（无需任何前置模型，也无需先在会话里让 agent 建模）→ 模型当场载入下方阅读器，在节点列表里选一项看详情 → 在图查询或影响分析里提交一个节点 ID。模型只在内存，不写工作区；要长期保留就用导出预览的 JSON 存成 `architecture/model.json`，再走"读取模型"。已经有模型文件时，直接填路径点"读取模型"即可。导出预览只是内存文本：不保存、不下载、不写工作区。
 12 个场景技能：`system-modeler`、`flow-visualizer`、`dependency-impact-analyzer`、`deployment-topology-analyzer`、`evolution-planner`、`risk-quality-reviewer`、`legacy-system-visualizer`、`architecture-communicator`、`architecture-health`，以及 `c4model`/`graphviz`/`drawio` 三个输出格式基础技能。它们复用同一模型与证据规则，区别只在产出形状。
 
 ## 它为工程实践带来什么

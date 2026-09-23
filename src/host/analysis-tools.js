@@ -1,6 +1,6 @@
 'use strict';
 
-const { readModel, isSafeRelativePath } = require('./read-model');
+const { readModel, resolveInlineModel, isSafeRelativePath } = require('./read-model');
 const queries = require('../core/query');
 const { computeImpact } = require('../core/impact');
 const { compareModels } = require('../core/compare');
@@ -56,26 +56,41 @@ function modelContext(model) {
   return { project: model.project, scope: model.scope, sourceRevision: model.sourceRevision, coverage: model.coverage };
 }
 
-async function execute(host, name, request, schema) {
+async function execute(host, name, request, schema, inlineModel) {
   const hasChangeSource = request && ((typeof request.branch === 'string' && request.branch.trim() !== '')
     || (typeof request.changeSource === 'string' && request.changeSource.trim() !== ''));
   if (hasChangeSource) {
     return fail(CODES.CHANGE_SOURCE_UNAVAILABLE, 'Branch/change-set lookup is unavailable. Supply explicit model paths and impact targets; Git state is never inferred.');
   }
-  if (!checkRequest(request, schema)) return fail(CODES.INVALID_OPTION, 'Arguments must match the declared tool schema, including bounded budgets and known fields.');
+  // An in-memory model replaces the required `path`, so the schema is relaxed
+  // for exactly that one field. Every other bound still applies.
+  const acceptsInline = inlineModel !== undefined && name !== 'architecture_compare';
+  const effectiveSchema = acceptsInline
+    ? { ...schema, required: (schema.required || []).filter((key) => key !== 'path') }
+    : schema;
+  if (!checkRequest(request, effectiveSchema)) return fail(CODES.INVALID_OPTION, 'Arguments must match the declared tool schema, including bounded budgets and known fields.');
   if (name === 'architecture_compare' && (!request.beforePath || !request.afterPath)) {
     return fail(CODES.CHANGE_SOURCE_UNAVAILABLE, 'Both explicit model snapshot paths are required; no change source was inferred.');
+  }
+  if (name === 'architecture_compare' && inlineModel !== undefined) {
+    return fail(CODES.INVALID_OPTION, 'Comparison reads two snapshot files and does not accept an in-memory model.');
   }
   if (name === 'architecture_impact' && !request.targets) {
     return fail(CODES.CHANGE_SOURCE_UNAVAILABLE, 'Explicit node IDs or evidence file paths are required; no change source was inferred.');
   }
-  const paths = name === 'architecture_compare' ? [request.beforePath, request.afterPath] : [request.path];
-  if (!paths.every(isSafeRelativePath)) return fail('INVALID_PATH', 'Use workspace-relative model file paths without traversal.');
   const loaded = [];
-  for (const path of paths) {
-    const result = await readModel(host, path);
-    if (!result.ok) return result;
-    loaded.push(result.model);
+  if (acceptsInline) {
+    const resolved = resolveInlineModel(inlineModel);
+    if (!resolved.ok) return resolved;
+    loaded.push(resolved.model);
+  } else {
+    const paths = name === 'architecture_compare' ? [request.beforePath, request.afterPath] : [request.path];
+    if (!paths.every(isSafeRelativePath)) return fail('INVALID_PATH', 'Use workspace-relative model file paths without traversal.');
+    for (const path of paths) {
+      const result = await readModel(host, path);
+      if (!result.ok) return result;
+      loaded.push(result.model);
+    }
   }
   if (name === 'architecture_compare') {
     return { ...compareModels({ before: loaded[0], after: loaded[1] }), sourceContentVerified: false };
@@ -94,13 +109,13 @@ function analysisDefinition(name) {
   return manifest.contributes.agentTools.find((entry) => entry.name === name) || null;
 }
 
-async function executeAnalysis(host, name, request) {
+async function executeAnalysis(host, name, request, inlineModel) {
   const definition = analysisDefinition(name);
   if (!definition || !ANALYSIS_TOOL_NAMES.includes(name)) {
     return fail(CODES.UNSUPPORTED_INPUT, 'This analysis operation is not available.');
   }
   try {
-    return boundResponse(await execute(host, name, request, definition.schema));
+    return boundResponse(await execute(host, name, request, definition.schema, inlineModel));
   } catch {
     return fail(CODES.INTERNAL_ERROR, 'Analysis failed unexpectedly; no complete result was produced.');
   }

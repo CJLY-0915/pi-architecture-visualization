@@ -50,4 +50,28 @@ async function readModel(host, path, options = {}) {
   return { ok: true, model, validation };
 }
 
-module.exports = { readModel, isSafeRelativePath, MAX_MODEL_BYTES, MAX_MODEL_CHARS };
+/**
+ * Validates a model handed back by the panel instead of read from a file.
+ *
+ * The panel can collect a model and query it in the same breath, so a fresh
+ * scan is usable without writing anything. The agent tools never take this
+ * route: their schemas declare `additionalProperties: false`, so an undeclared
+ * `model` field is rejected before it reaches here.
+ */
+function resolveInlineModel(model, options = {}) {
+  let text;
+  try {
+    text = JSON.stringify(model);
+  } catch {
+    return failure('INVALID_MODEL', 'The supplied model is not serializable JSON.');
+  }
+  if (text.length > MAX_MODEL_CHARS) return failure('MODEL_TOO_LARGE', 'The supplied model exceeds the 2 Mi character budget.');
+  const validation = validateModel(model);
+  if (!validation.valid) {
+    if (options.allowInvalidModel === true) return { ok: true, model, validation };
+    return { ok: false, validation, error: { code: 'INVALID_MODEL', message: 'The supplied model failed structural validation; analysis was not performed.' } };
+  }
+  return { ok: true, model, validation };
+}
+
+module.exports = { readModel, resolveInlineModel, isSafeRelativePath, MAX_MODEL_BYTES, MAX_MODEL_CHARS };

@@ -1,4 +1,4 @@
-const { readModel, isSafeRelativePath } = require('./src/host/read-model.js');
+const { readModel, resolveInlineModel, isSafeRelativePath } = require('./src/host/read-model.js');
 const { createAnalysisTools, executeAnalysis, ANALYSIS_TOOL_NAMES, boundResponse, toolDefinition } = require('./src/host/analysis-tools.js');
 const { SNAPSHOT_PLAN_TOOL, createSnapshotPlanTool } = require('./src/host/snapshot-plan-tool.js');
 const { createHealthTool, executeHealth, HEALTH_TOOL } = require('./src/host/health-tool.js');
@@ -155,7 +155,15 @@ async function collectCurrentState(args) {
     return { ok: false, error: { code: 'NO_WORKSPACE', message: 'Open a project folder before collecting its architecture.' } };
   }
 
-  return summarize(result);
+  const summary = summarize(result);
+  // `includeModel` is the panel-only switch that makes a fresh scan queryable
+  // without writing a file: the summary stays bounded, the model travels whole
+  // because the panel bridge has no byte budget of its own.
+  if (request.includeModel === true) {
+    if (!result.ok) return summary;
+    return { ...summary, model: result.model };
+  }
+  return summary;
 }
 
 async function onLoad() {
@@ -239,32 +247,47 @@ async function onPanelInvoke(channel, payload) {
   if (!name) {
     return { ok: false, error: { code: 'unsupported_input', message: 'This panel operation is not available.' } };
   }
-  if (name === 'architecture_export_preview') {
-    const request = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
-    // focus and level only mean anything to the C4 renderer; every other format
-    // ignores them, so they are accepted here and validated there.
-    const boundedFocus = Boolean(request) && (request.focus === undefined || (typeof request.focus === 'string' && request.focus.length > 0 && request.focus.length <= 1024));
-    if (!request || typeof request.path !== 'string' || request.path.length === 0 || request.path.length > 1024 || typeof request.format !== 'string' || !boundedFocus || Object.keys(request).some((key) => key !== 'path' && key !== 'format' && key !== 'focus' && key !== 'level')) {
-      return { ok: false, error: { code: 'invalid_option', message: 'Provide a bounded model path, one preview format, and an optional bounded C4 focus node id.' } };
-    }
-    const loaded = await readModel(readHost(), request.path);
-    if (!loaded.ok) return loaded;
-    return boundResponse(exportPreview(loaded.model, request.format, { focus: request.focus, level: request.level }));
-  }
   if (name === 'architecture_collect') {
     // Collect has no model path: it scans the workspace through the same host
     // source the command and the agent tool use and returns the same bounded
     // summary, so the panel can show what the collector sees before any model
-    // exists. Only its two options are accepted at this boundary.
+    // exists. `includeModel` additionally hands back the model itself, which is
+    // what makes a fresh scan queryable without writing a file.
     const request = payload === undefined ? {} : payload;
     if (!request || typeof request !== 'object' || Array.isArray(request)
-      || Object.keys(request).some((key) => key !== 'scopeRoots' && key !== 'maxFiles')) {
-      return { ok: false, error: { code: 'invalid_option', message: 'Collect accepts only optional scopeRoots and maxFiles.' } };
+      || Object.keys(request).some((key) => key !== 'scopeRoots' && key !== 'maxFiles' && key !== 'includeModel')) {
+      return { ok: false, error: { code: 'invalid_option', message: 'Collect accepts only optional scopeRoots, maxFiles and includeModel.' } };
     }
     return collectCurrentState(request);
   }
-  if (name === 'architecture_health') return executeHealth(readHost(), payload);
-  return executeAnalysis(readHost(), name, payload);
+  // A model the panel collected in this session replaces the file path, so the
+  // whole read-model-analyse loop can run on a scan nobody saved yet.
+  const { model: inlineModel, ...rest } = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+  if (name === 'architecture_export_preview') {
+    const request = rest && typeof rest === 'object' ? rest : null;
+    // focus and level only mean anything to the C4 renderer; every other format
+    // ignores them, so they are accepted here and validated there.
+    const boundedFocus = Boolean(request) && (request.focus === undefined || (typeof request.focus === 'string' && request.focus.length > 0 && request.focus.length <= 1024));
+    const needsPath = inlineModel === undefined;
+    if (!request || typeof request.format !== 'string' || !boundedFocus
+      || (needsPath && (typeof request.path !== 'string' || request.path.length === 0 || request.path.length > 1024))
+      || Object.keys(request).some((key) => key !== 'path' && key !== 'format' && key !== 'focus' && key !== 'level')) {
+      return { ok: false, error: { code: 'invalid_option', message: 'Provide a bounded model path, one preview format, and an optional bounded C4 focus node id.' } };
+    }
+    let model;
+    if (inlineModel !== undefined) {
+      const resolved = resolveInlineModel(inlineModel);
+      if (!resolved.ok) return resolved;
+      model = resolved.model;
+    } else {
+      const loaded = await readModel(readHost(), request.path);
+      if (!loaded.ok) return loaded;
+      model = loaded.model;
+    }
+    return boundResponse(exportPreview(model, request.format, { focus: request.focus, level: request.level }));
+  }
+  if (name === 'architecture_health') return executeHealth(readHost(), rest, inlineModel);
+  return executeAnalysis(readHost(), name, rest, inlineModel);
 }
 // `summarize` and the budget constants are exported so the response bounding
 // can be tested without a host; the entry points stay the only `pi` callers.

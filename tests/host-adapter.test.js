@@ -712,3 +712,64 @@ test('health preserves contract diagnostics for a parsed null model', async () =
     delete global.pi;
   }
 });
+
+test('a model collected in the panel can be analysed without any file on disk', async () => {
+  const tree = simpleTree();
+  await withHost(tree, {}, async () => {
+    await plugin.onLoad();
+    const collected = await plugin.onPanelInvoke('architecture.collect', { includeModel: true });
+    assert.equal(collected.ok, true);
+    assert.ok(collected.model, 'includeModel must hand back the model itself');
+    assert.equal(collected.model.schemaVersion, 1);
+    assert.ok(collected.model.nodes.length > 0);
+
+    // The bounded summary still rides along, so the panel keeps its blind spots.
+    assert.ok(collected.counts.nodes > 0);
+    assert.ok(Array.isArray(collected.unresolved));
+
+    // No model file exists anywhere in this tree, so every analysis below runs
+    // purely on the in-memory model.
+    const query = await plugin.onPanelInvoke('architecture.query', { model: collected.model, mode: 'filter' });
+    assert.equal(query.ok, true);
+    assert.ok(query.nodes.length > 0);
+
+    const impact = await plugin.onPanelInvoke('architecture.impact', { model: collected.model, targets: ['file:src/main.js'], direction: 'both', maxDepth: 4 });
+    assert.equal(impact.ok, true);
+
+    const health = await plugin.onPanelInvoke('architecture.health', { model: collected.model });
+    assert.equal(health.ok, true);
+    assert.equal(health.sourceContentVerified, false);
+
+    const preview = await plugin.onPanelInvoke('architecture.exportPreview', { model: collected.model, format: 'json' });
+    assert.equal(preview.ok, true);
+    assert.equal(preview.format, 'json');
+
+    // A structurally broken in-memory model is refused, not analysed.
+    const broken = JSON.parse(JSON.stringify(collected.model));
+    broken.edges[0].target = 'node.missing';
+    const refused = await plugin.onPanelInvoke('architecture.query', { model: broken, mode: 'filter' });
+    assert.equal(refused.ok, false);
+    assert.equal(refused.error.code, 'INVALID_MODEL');
+
+    // Compare still reads two files and says so instead of guessing.
+    const compare = await plugin.onPanelInvoke('architecture.compare', { model: collected.model, beforePath: 'a.json', afterPath: 'b.json' });
+    assert.equal(compare.ok, false);
+    assert.equal(compare.error.code, 'invalid_option');
+    await plugin.onUnload();
+  });
+});
+
+test('the agent tools never accept an in-memory model, only the panel does', async () => {
+  const tree = simpleTree();
+  const host = createHost(tree);
+  try {
+    await plugin.onLoad();
+    const collected = await plugin.onPanelInvoke('architecture.collect', { includeModel: true });
+    const toolResult = await host.tools.get('architecture_query').execute({ model: collected.model, mode: 'filter' });
+    assert.equal(toolResult.ok, false);
+    assert.equal(toolResult.error.code, 'invalid_option', 'an undeclared model field must not widen the tool contract');
+    await plugin.onUnload();
+  } finally {
+    delete global.pi;
+  }
+});

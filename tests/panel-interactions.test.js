@@ -222,3 +222,47 @@ test('panel probes the collector before any model is loaded and keeps blind spot
   assert.equal(elements.get('collect-status').dataset.kind, 'error');
   assert.ok(containsText(elements.get('collect-status'), '正整数'));
 });
+
+test('a collected model becomes the active one and is analysed without a path', async () => {
+  const collectedModel = JSON.parse(JSON.stringify(model));
+  const harness = createPanelHarness((channel) => {
+    if (channel === 'architecture.collect') return {
+      ok: true,
+      coverage: { complete: true, filesListed: 4, filesScanned: 4, filesSkipped: 0, adapters: [] },
+      counts: { nodes: collectedModel.nodes.length, edges: collectedModel.edges.length, evidence: collectedModel.evidence.length },
+      unresolved: [],
+      diagnostics: [],
+      model: collectedModel,
+    };
+    if (channel === 'architecture.query') return { ok: true, nodes: [], modelContext: {} };
+    if (channel === 'architecture.health') return { ok: true, counts: {}, findings: [] };
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+
+  // The reader opens on the collected model, and the source is named so a
+  // bounded summary is never mistaken for a saved file.
+  assert.equal(elements.get('reader').hidden, false, 'collecting must open the reader');
+  assert.equal(elements.get('model-source').textContent, '来自本次采集（未落盘）');
+  assert.equal(elements.get('project-name').textContent, collectedModel.project.name, 'the reader must show the collected project');
+
+  // Analysis now travels the model itself; no path is sent, because no file exists.
+  elements.get('query-targets').value = 'module:core-model';
+  elements.get('query-form').dispatch('submit');
+  await settle();
+  const query = calls.find((call) => call.channel === 'architecture.query');
+  assert.ok(query, 'the panel must issue a query');
+  assert.equal(query.payload.path, undefined, 'an unsaved model must not be addressed by path');
+  assert.equal(query.payload.model.schemaVersion, 1);
+  assert.equal(query.payload.model.nodes.length, collectedModel.nodes.length);
+
+  elements.get('health-form').dispatch('submit');
+  await settle();
+  const health = calls.find((call) => call.channel === 'architecture.health');
+  assert.ok(health);
+  assert.equal(health.payload.path, undefined);
+  assert.ok(health.payload.model);
+});

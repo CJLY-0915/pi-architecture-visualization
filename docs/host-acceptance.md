@@ -22,7 +22,7 @@
 | A11 | fs 符号链接逃逸 | 目标项目放置指向区外的符号链接 | 宿主拒绝或记录为覆盖缺口，不静默读取 | `architecture_collect` 的 `unresolved` | ✅ 用户本轮确认 |
 | A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
 | A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ✅ 用户本轮确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）；标签页已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）。未单独检查：重复打开/关闭后的残留注册与重复面板（模型记 `unknown:docked-view-lifecycle-residue`） |
-| A14 | 面板采集探测通道 | 不载入模型，直接在浮动面板或停靠视图点"运行采集探测" | 返回与命令/工具同一份有界摘要（计数、覆盖账本、盲区、上限）；非正整数文件预算本地拒绝 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
+| A14 | 面板采集并生成模型 | 不载入模型，直接在浮动面板或停靠视图点"采集并生成模型" | 返回有界摘要（计数、覆盖账本、盲区、上限）并当场生成完整模型；阅读器立即可用，图查询/影响/健康/导出都在这份内存模型上跑；非正整数文件预算本地拒绝；结构性不合格的模型被拒绝而非分析 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -75,3 +75,5 @@
 - 回归覆盖：`tests/host-adapter.test.js`（无模型也可扫、`scopeRoots`/`maxFiles`、四类坏 payload 拒绝）与 `tests/panel-interactions.test.js`（payload 解析、盲区渲染、非法预算本地拒绝），共 +2 条。
 - 顺带修掉 `previewCard` 里过时的"12,000 字符内存预览预算"——`MAX_PREVIEW_CHARS` 早已是 24000。
 - 版本 1.1.0 → 1.2.0；`node --test tests/*.test.js` 270/270。
+- **采集结果当场成为活动模型**：`architecture.collect` 接受 `includeModel` 一并回传完整模型，面板载入阅读器；四个分析通道的面板入口接受 `model` 代替 `path`，主进程重新校验后才使用。Agent 工具契约不变（`additionalProperties: false` 已拒绝 `model`），内存模型这条路只有面板能走。
+- 版本 1.2.0 → 1.3.0；`node --test tests/*.test.js` 273/273。

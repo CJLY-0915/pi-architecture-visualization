@@ -10,7 +10,9 @@
 
 ### 一句话
 
-**把一个代码仓库变成一份"每个结论都带证据"的架构事实模型，并在这份模型上做只读的查询、影响分析、健康检查与导出。**
+**它把"AI 说的架构"变成"能核对的架构"：每条结论都挂 `file:line` 出处和 `confirmed`/`inferred`/`assumed`/`unknown` 分级，查不到证据就明说不知道，不画成确认的框。**
+
+这不是数据形状的描述，是三种常见工程动作的差别：问 AI"改这里会影响什么"，它给一个列表，但不告诉你哪条是猜的；问这个插件，列表里每条都带 `status`/`confidence`，你知道该重点 review 谁。接手陌生仓库时，AI 给一份"架构概述"；这个插件给一份**开篇是未知项**的清单，每条带责任角色和定案步骤。文档说支持 X、代码里三年前就消失了——以前没人能证明它不存在，现在每条边都能点到 `file:line`。
 
 ### 它解决的真实问题
 
@@ -47,7 +49,7 @@
 | 入口 | 怎么用 | 适合 |
 | --- | --- | --- |
 | **技能（对话）** | 直接描述问题，路由技能 `explore` 会选场景技能 | 绝大多数情况；不需要记住工具名 |
-| **右侧工作面板 / 浮动面板** | 命令面板搜 `Architecture: Open Workbench`，或右侧工作面板点"架构可视化"标签页 | 边读边查；同一份 `renderer/index.html`，两种形态共用同一 preload。没有模型时可先跑采集探测，看采集器能看见什么 |
+| **右侧工作面板 / 浮动面板** | 命令面板搜 `Architecture: Open Workbench`，或右侧工作面板点"架构可视化"标签页 | 边读边查；同一份 `renderer/index.html`，两种形态共用同一 preload。没有模型时点“采集并生成模型”即可当场得到可用模型 |
 | **Agent 工具** | `architecture_validate` / `architecture_collect` / `architecture_query` / `architecture_impact` / `architecture_compare` / `architecture_snapshot_plan` / `architecture_health` | 脚本化、CI 里跑 |
 
 面板只经 `window.pluginBridge.invoke` 访问 5 个固定通道，不碰任意 Electron IPC。
@@ -68,7 +70,7 @@
 ```
 **得到**：按 `parentId` 链切出的三层——L1 系统上下文（焦点系统 + 使用者 + 外部依赖）、L2 容器（6 个可部署单元）、L3 组件（每个容器内的职责，本仓库共 7 个）。每个元素都带 `type/status/confidence · <模型 id>`，可逐一回溯。
 **得不到**：渲染好的图。把 `.dsl` 送到外部 Structurizr 兼容工具。
-**该换格式的时候**：想知道"什么 import 什么"→ `graphviz` 的模块关系图；想跟一条请求→ `flow-visualizer`。还没有模型时，面板顶部的"采集探测"先给出采集器视角的有界摘要与盲区（只读、不落盘）。
+**该换格式的时候**：想知道"什么 import 什么"→ `graphviz` 的模块关系图；想跟一条请求→ `flow-visualizer`。还没有模型时，面板顶部的“采集并生成模型”当场产出一份内存模型并载入阅读器，可直接查询与导出（只读、不落盘）。
 
 ### 场景三："这个模型还可信吗？"
 
@@ -137,7 +139,7 @@
 
 - **之前**：README 写 254、PLAN 写 251、host 记录写 223；模型 `sourceRevision` 落后 HEAD；"首个三平台 CI 结果未取得"在 CI 已全绿后还挂着。
 - **之后**：用例数、文件数、版本号、CI 状态在各处一致，且由测试锁定（manifest 与 package 版本一致、打包范围恰好 40 文件）。
-- **可验证**：`node --test tests/*.test.js` 270/270；`git grep` 搜不到过期数字。
+- **可验证**：`node --test tests/*.test.js` 273/273；`git grep` 搜不到过期数字。
 
 ### 6. 安全边界是声明出来的，不是猜的
 
