@@ -266,3 +266,88 @@ test('a collected model becomes the active one and is analysed without a path', 
   assert.equal(health.payload.path, undefined);
   assert.ok(health.payload.model);
 });
+
+// The harness Element has no querySelectorAll, so walk the tree by class.
+function findAllByClass(element, className, out = []) {
+  const own = typeof element.className === 'string' ? element.className.split(/\s+/) : [];
+  if (own.includes(className)) out.push(element);
+  for (const child of element.children || []) findAllByClass(child, className, out);
+  return out;
+}
+function findByClass(element, className) { return findAllByClass(element, className)[0] || null; }
+function selectFirstNode(elements) {
+  const row = elements.get('node-list').children[0];
+  assert.ok(row, 'the node index must have rows');
+  row.dispatch('click');
+}
+
+test('panel opens an evidence file and copies an export through host bridges only', async () => {
+  const harness = createPanelHarness((channel) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'architecture.exportPreview') return {
+      ok: true, format: 'json', mimeType: 'application/json', supported: true,
+      content: '{"schemaVersion":1}', contentTruncated: false, metadata: { schemaVersion: 1 }, legend: [], limitations: [],
+    };
+    if (channel === 'fs.openDefault') return { ok: true };
+    if (channel === 'clipboard.writeText') return { ok: true };
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+  elements.get('load-form').dispatch('submit');
+  await settle();
+  selectFirstNode(elements);
+  await settle();
+
+  const openButtons = findAllByClass(elements.get('detail-body'), 'evidence-open');
+  assert.ok(openButtons.length > 0, 'every evidence row with a path must offer an open action');
+  openButtons[0].dispatch('click');
+  await settle();
+  const opened = calls.find((call) => call.channel === 'fs.openDefault');
+  assert.ok(opened, 'opening evidence must go through the host bridge');
+  assert.equal(typeof opened.payload.path, 'string');
+  assert.ok(opened.payload.path.length > 0, 'the path must be sent verbatim, never rebuilt');
+  assert.equal(elements.get('status').dataset.kind, 'ready');
+
+  // The export offers a copy action instead of asking the user to hand-select
+  // a multi-kilobyte <pre>.
+  elements.get('export-format').value = 'json';
+  elements.get('export-form').dispatch('submit');
+  await settle();
+  const copyButton = findAllByClass(elements.get('analysis-results'), 'button')
+    .find((button) => button.textContent === '复制到剪贴板');
+  assert.ok(copyButton, 'a supported export must offer a copy action');
+  copyButton.dispatch('click');
+  await settle();
+  const copied = calls.find((call) => call.channel === 'clipboard.writeText');
+  assert.ok(copied, 'copying must go through the host bridge');
+  assert.equal(copied.payload.text, '{"schemaVersion":1}');
+  assert.equal(copyButton.textContent, '已复制');
+});
+
+test('a refused evidence open is reported, not silently ignored', async () => {
+  const harness = createPanelHarness((channel) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'fs.openDefault') throw Object.assign(new Error('path escapes the plugin root'), { code: 'PERMISSION_DENIED' });
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+  elements.get('load-form').dispatch('submit');
+  await settle();
+  selectFirstNode(elements);
+  await settle();
+
+  const openButton = findByClass(elements.get('detail-body'), 'evidence-open');
+  assert.ok(openButton, 'the evidence row must still be actionable');
+  openButton.dispatch('click');
+  await settle();
+
+  assert.equal(calls.filter((call) => call.channel === 'fs.openDefault').length, 1);
+  assert.equal(elements.get('status').dataset.kind, 'error');
+  assert.ok(containsText(elements.get('status'), 'PERMISSION_DENIED'));
+  // The evidence row stays on screen so the claim can still be checked by hand.
+  assert.ok(findByClass(elements.get('detail-body'), 'evidence-open'));
+});

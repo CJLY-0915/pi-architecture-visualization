@@ -121,6 +121,9 @@
     .collect-form .field { width: 100%; }
     .collect-form .button { min-height: 36px; justify-self: start; }
     .detail-id { margin: 5px 0 18px; color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .evidence-item { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .evidence-open { flex: 0 0 auto; min-height: 24px; padding: 0 9px; font-size: 11px; }
+    .preview-actions { margin-top: 8px; }
     .detail-properties { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line); background: var(--line); }
     .detail-properties div { min-width: 0; padding: 10px; background: var(--paper-raised); }
     .detail-properties dt { color: var(--faint); font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; text-transform: uppercase; }
@@ -455,8 +458,35 @@
         const name = document.createElement("h3"); name.className = "detail-name"; name.textContent = nodeName(node, index); const id = document.createElement("p"); id.className = "detail-id"; id.textContent = nodeId(node, index); const props = document.createElement("dl"); props.className = "detail-properties";
         [["类型", nodeType(node)], ["架构状态", printable(node.state)], ["事实状态", nodeStatus(node)], ["置信度", nodeConfidence(node)], ["说明", printable(node.description || node.summary)]].forEach(([label, value]) => { const div = document.createElement("div"); const dt = document.createElement("dt"); dt.textContent = label; const dd = document.createElement("dd"); dd.textContent = value; div.append(dt, dd); props.append(div); });
         ui.detail.append(name, id, props);
-        const evidence = evidenceFor(node.evidenceIds); ui.detail.append(listSection("证据记录", evidence, (item) => { const li = document.createElement("li"); li.className = "evidence-item"; const eid = document.createElement("span"); eid.className = "evidence-id"; const line = Number.isInteger(item.line) ? `:${item.line}` : ""; eid.textContent = `${printable(item.id, "未编号证据")} · ${printable(item.type, "未标注类型")}`; const text = document.createElement("span"); text.textContent = `${printable(item.path, "证据未提供路径")}${line}`; li.append(eid, text); return li; }, "该节点没有关联的证据记录。"));
+        const evidence = evidenceFor(node.evidenceIds); ui.detail.append(listSection("证据记录", evidence, (item) => { const li = document.createElement("li"); li.className = "evidence-item"; const eid = document.createElement("span"); eid.className = "evidence-id"; const line = Number.isInteger(item.line) ? `:${item.line}` : ""; eid.textContent = `${printable(item.id, "未编号证据")} · ${printable(item.type, "未标注类型")}`; const text = document.createElement("span"); text.textContent = `${printable(item.path, "证据未提供路径")}${line}`; li.append(eid, text); const path = typeof item.path === "string" ? item.path.trim() : ""; if (path) { const open = document.createElement("button"); open.className = "button secondary evidence-open"; open.type = "button"; open.textContent = "打开"; open.addEventListener("click", () => { void openEvidence(path); }); li.append(open); } return li; }, "该节点没有关联的证据记录。"));
         const edges = relatedEdges(state.selectedId); ui.detail.append(listSection("关联边", edges, (edge) => { const li = document.createElement("li"); li.className = "edge-item"; const eid = document.createElement("span"); eid.className = "evidence-id"; eid.textContent = edge.id; const summary = document.createElement("span"); summary.textContent = `${edge.source} → ${edge.target} · ${edge.type} · ${edge.state}/${edge.status} · 置信度 ${edge.confidence}`; const proof = document.createElement("span"); const refs = evidenceFor(edge.evidenceIds).map((item) => `${item.path}${Number.isInteger(item.line) ? `:${item.line}` : ""}`); proof.textContent = refs.length ? `证据：${refs.join("、")}` : "证据：未提供"; li.append(eid, summary, document.createElement("br"), proof); return li; }, "该节点没有关联的边记录。"));
+      }
+      // Opening the evidence file is the one action that turns "this claim has
+      // a source" into "go read it": the host exposes `fs.openDefault` on the
+      // panel bridge and it needs only the `fs.read` permission we already hold.
+      async function openEvidence(path) {
+        try {
+          await bridgeInvoke("fs.openDefault", { path });
+          setStatus("ready", `已请求宿主打开 ${path}。若编辑器未响应，请手动打开该文件核对。`);
+        } catch (error) {
+          // The host's stable code is more useful than a local category: it is
+          // what the compatibility doc and the error-code list can be matched on.
+          const code = error && typeof error.code === "string" && error.code ? error.code : errorKind(error);
+          setStatus("error", `${code}：无法打开 ${path}（${String(error && error.message || error)}）。证据文本仍在上方，可自行核对。`);
+        }
+      }
+      function previewCard(result) { const card = document.createElement("section"); card.className = `result-card ${result.supported ? "" : "warning"}`; const heading = document.createElement("h3"); heading.textContent = `内存预览 · ${result.format}`; card.append(heading); const meta = document.createElement("p"); meta.textContent = result.supported ? `${result.mimeType}；未保存或下载。` : "该格式在当前安全边界中不生成内容。"; card.append(meta); if (result.content) { const pre = document.createElement("pre"); pre.textContent = result.content; card.append(pre); if (result.contentTruncated === true) { const note = document.createElement("p"); note.textContent = "内容已受 24,000 字符内存预览预算截断；未保存其余内容，也不能视为完整导出。"; card.append(note); } const actions = document.createElement("div"); actions.className = "preview-actions"; const copy = document.createElement("button"); copy.className = "button secondary"; copy.type = "button"; copy.textContent = "复制到剪贴板"; copy.addEventListener("click", () => { void copyText(result.content, copy); }); actions.append(copy); card.append(actions); } return card; }
+      // The export is the only way to keep a model the collector just produced,
+      // and hand-selecting a 20 KB <pre> is not a way to keep anything.
+      async function copyText(text, button) {
+        try {
+          await bridgeInvoke("clipboard.writeText", { text });
+          const done = button.textContent; button.textContent = "已复制"; button.disabled = true;
+          setStatus("ready", "已复制到剪贴板。粘贴保存为 architecture/model.json 后即可用“读取模型”载入。");
+          setTimeout(() => { button.textContent = done; button.disabled = false; }, 2000);
+        } catch (error) {
+          setStatus("error", `${errorKind(error)}：剪贴板不可用（${String(error && error.message || error)}）。请手动选中预览文本复制。`);
+        }
       }
       function renderUnknowns() {
         const unknowns = Array.isArray(state.model.unknowns) ? state.model.unknowns : [];
@@ -467,7 +497,6 @@
       function splitValues(value) { return String(value || "").split(",").map((item) => item.trim()).filter(Boolean); }
       function describe(value) { if (typeof value === "string") return value; try { return JSON.stringify(value); } catch { return "不可显示的结果项"; } }
       function resultCard(title, entries, kind = "") { const card = document.createElement("section"); card.className = `result-card ${kind}`; const heading = document.createElement("h3"); heading.textContent = title; card.append(heading); if (!entries.length) { const note = document.createElement("p"); note.textContent = "无记录。"; card.append(note); return card; } const list = document.createElement("ul"); entries.slice(0, 24).forEach((entry) => { const item = document.createElement("li"); item.textContent = describe(entry); list.append(item); }); if (entries.length > 24) { const item = document.createElement("li"); item.textContent = `仅显示前 24 / ${entries.length} 项；结果未被视为完整。`; list.append(item); } card.append(list); return card; }
-      function previewCard(result) { const card = document.createElement("section"); card.className = `result-card ${result.supported ? "" : "warning"}`; const heading = document.createElement("h3"); heading.textContent = `内存预览 · ${result.format}`; card.append(heading); const meta = document.createElement("p"); meta.textContent = result.supported ? `${result.mimeType}；未保存或下载。` : "该格式在当前安全边界中不生成内容。"; card.append(meta); if (result.content) { const pre = document.createElement("pre"); pre.textContent = result.content; card.append(pre); if (result.contentTruncated === true) { const note = document.createElement("p"); note.textContent = "内容已受 24,000 字符内存预览预算截断；未保存其余内容，也不能视为完整导出。"; card.append(note); } } return card; }
       function renderAnalysis(kind, result) {
         ui.analysisResults.replaceChildren();
         const healthDiagnostics = kind === "health" && result && result.validation && Array.isArray(result.findings);
