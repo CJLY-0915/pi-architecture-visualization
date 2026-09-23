@@ -3,6 +3,8 @@
 - 生成时间：2026-09-23T16:04:14+08:00（与本目录 `model.json` 同一轮）
 - 当前态来源：`architecture/model.json`（`state: current`，17 节点 / 19 边 / 27 证据）
 - 目标态来源：**仓库自己声明的退出门**，不是本文件发明的目标。逐行引用 `PLAN.md`、`README.md`、`docs/host-compatibility.md` 与技能合同。
+
+> 实时状态以 [docs/host-acceptance.md](../docs/host-acceptance.md) 为准：S6（CI 与合同门禁）已落地，S2/S3 的逐项证据记在那张表里；本文件保留差距与切片定义，避免两处各写一份状态。
 - 本文件只记录差距与切片，**不建立 current→target 的边**：跨状态边会被 `src/core/validation.js` 拒绝，也不该把"想做的"画成"已存在的"。
 
 ## 差距表
