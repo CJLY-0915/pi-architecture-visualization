@@ -21,7 +21,7 @@ const ROOT = path.join(__dirname, '..');
 const SHIP_ROOTS = ['main.js', 'manifest.json', 'package.json', 'src', 'extensions', 'renderer', 'skills'];
 
 // Committed for development, never packaged.
-const DEV_ONLY_ROOTS = ['tests', 'fixtures', 'docs', '.github', 'README.md', 'PLAN.md', '.gitignore'];
+const DEV_ONLY_ROOTS = ['tests', 'fixtures', 'docs', '.github', 'README.md', 'PLAN.md', 'CHANGELOG.md', '.gitignore'];
 
 // Never committed either.
 const LOCAL_ONLY = ['architecture', 'dist', 'Temp', '.pi', 'node_modules', 'coverage', '.cache'];
@@ -119,4 +119,10 @@ test('the ship set carries no logs, caches or credential-shaped files', () => {
     assert.doesNotMatch(file, /\.(log|tmp|cache)$/, `${file} must not be packaged`);
     assert.doesNotMatch(file, /(^|\/)\.env/, `${file} looks like a credential file`);
   }
+});
+
+test('the manifest and package versions stay in step', () => {
+  assert.equal(manifest.version, require('../package.json').version,
+    'manifest.json and package.json must declare the same version');
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'the version must be a semver triple');
 });

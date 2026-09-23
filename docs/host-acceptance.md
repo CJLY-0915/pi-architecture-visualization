@@ -21,7 +21,7 @@
 | A10 | `.piplug` 安装回归 | 干净环境安装→启用→升级→禁用→卸载 | 全通过；权限扩大被要求重新审核 | 安装流程截图/日志 | ✅ 用户本轮确认 |
 | A11 | fs 符号链接逃逸 | 目标项目放置指向区外的符号链接 | 宿主拒绝或记录为覆盖缺口，不静默读取 | `architecture_collect` 的 `unresolved` | ✅ 用户本轮确认 |
 | A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
-| A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 工作面板 + `plugin.log` | ⬜ 未验证（`ui.view` 已声明但用户尚未授权；宿主无 `openView` API，视图只能由用户点开） |
+| A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ⬜ 前半段已确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）。后半段仍开放：右侧工作面板里的标签页尚未被打开过一次 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -55,4 +55,5 @@
 - `tests/manifest-contract.test.js`：技能显式 id 与唯一性（修复"13 个 SKILL.md 撞同一 id"的回归）。
 - `.github/workflows/ci.yml`：三平台 `node --test tests/*.test.js`。
 - `main.js`：validate/collect 的声明改为从 manifest 派生，消除第二份 schema 字面量。
-- 全套 254 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。
+- 全套 255 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。
+- `.github/workflows/ci.yml` 的三平台 `node --test tests/*.test.js` **已全绿**：commit `bb03244` 的 run 中 macos-latest 9s、ubuntu-latest 5s、windows-latest 18s 全部 Success（总 21s）。证据是用户在 GitHub Actions 页面提供的运行截图，本机读不到（GitHub API 未认证返回 403）。
