@@ -55,4 +55,4 @@
 - `tests/manifest-contract.test.js`：技能显式 id 与唯一性（修复"13 个 SKILL.md 撞同一 id"的回归）。
 - `.github/workflows/ci.yml`：三平台 `node --test tests/*.test.js`。
 - `main.js`：validate/collect 的声明改为从 manifest 派生，消除第二份 schema 字面量。
-- 全套 235 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。
+- 全套 251 个用例通过；`PluginCheck` 通过（1 条高风险权限 warning）。

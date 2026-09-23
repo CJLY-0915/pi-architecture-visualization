@@ -13,7 +13,7 @@
 - 分发镜像：**运行时集合，共 39 文件** —— `main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`。该集合由 `tests/package-scope.test.js` 断言（manifest 声明路径齐全、全部 `require()` 目标可解析、开发资产被排除），并已用干净镜像实测：只复制这 7 个根后 `PluginCheck` 报告 `39 file(s) would be packaged`、无错误。`tests/`、`fixtures/`、`docs/`、`.github/`、`README.md`、`PLAN.md` 只进仓库不进包；`architecture/`（本仓库自身的架构模型）、`Temp/`、`dist/`、`.pi/` 只留在本地。宿主打包器**不读取 `.gitignore`**，因此打包范围靠上述门禁与干净镜像保证，不靠 git 忽略规则。
 - 版本控制：开发源是 Git 仓库（`main` 分支）；`architecture/`、`Temp/`、`dist/`、`.pi/`、`node_modules/`、系统与编辑器垃圾均在 `.gitignore` 中，不被跟踪。
 - 版本控制 remote：**已建立**——`https://github.com/CJLY-0915/pi-architecture-visualization.git`（`origin`，`main` 分支，10 个提交已全部推送，本地与 `origin/main` 同步）。`.github/workflows/ci.yml` 自本次 push 起具备触发条件；**首个三平台 CI 结果尚未取得**，从本机无法读取（GitHub API 未认证返回 403）。取得全绿前，R3（门禁未经独立复核）只算完成一半。
-- 完整独立的宿主 panel E2E 运行报告仍未取得（见 [host-acceptance.md](./host-acceptance.md) 的 ⬜ 项）。
+- 宿主生命周期与场景技能验收状态以 [host-acceptance.md](./host-acceptance.md) 为唯一实时来源：A 组 12 项已全部确认（A1–A3 附日志证据，A4 仅单测覆盖，A7–A12 为用户确认），B 组 13 个技能已全部实际执行一次。仍未取得的只有首个三平台 CI 结果（GitHub API 未认证返回 403）。
 
 ## 已核验合同
 

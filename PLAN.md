@@ -239,7 +239,7 @@ architecture/
 - 内部工具名为 `architecture_validate`；宿主公开名自动添加插件命名空间（本会话目录为 `plugin_local_architecture_visualization_plugin_architecture_validate`）。此前要求内部名称加 `plugin_` 的判断错误，已纠正。
 - P0 时 `PluginCheck` 通过；文件数量随实现更新，以最新检查报告为准。宿主公开工具名按插件规范使用 `plugin_` 前缀，具体最终名称以实际宿主注册表为准。
 - 当前权限为 `ui.panel`、`agent.prompt.inject`、`agent.tool.register`、`agent.extension`、`fs.read`；保存功能实现前不申请 `fs.write`。`agent.extension` 已由用户在插件页显式授予。
-- 已建立 [docs/host-compatibility.md](./docs/host-compatibility.md)；宿主版本 **0.15.4** 与 dev 插件注册状态已补录，SDK/devkit 版本与完整 panel E2E 仍未取得。
+- 已建立 [docs/host-compatibility.md](./docs/host-compatibility.md)；宿主版本 **0.15.4** 与 dev 插件注册状态已补录。宿主编译期 SDK/devkit 版本号无从取得（`engines.piDesktop` 只能声明下限）；宿主生命周期 A1–A12 与 13 个场景技能均已验证，见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 - P2 校验核心与只读入口正在实施；面板仍是占位界面。P1 宿主完整生命周期验证未完成，不把本地测试计作宿主验收。
 
 ### 阶段总览
@@ -302,7 +302,7 @@ fixtures/
 
 本轮执行状态：P2 核心和只读入口已落地，PluginCheck 通过。已覆盖悬空引用、重复 ID、层级环、范围越界、无证据事实、运行证据、假设状态、不支持版本，以及读取失败和加载/卸载清理。ID 采用集合内唯一；其余五类业务集合暂只约束对象和 ID。
 
-追加轮次（路由技能与常驻规则）：`skills/explore/SKILL.md` 重写为路由技能并补齐 12 个场景技能；新增 `extensions/workflow-rule.mjs` 以 `before_agent_start` 常驻追加路由规则；`manifest.json` 增加 `contributes.agentExtensions` 与 `agent.extension` 权限，`engines.piDesktop` 修正为 `>=0.15.4`。**修正一个宿主陷阱**：13 个技能都叫 `SKILL.md`，宿主按基名派生 id 导致只有 1/13 注册，改为显式 `id` 后 host 日志确认 `count=13`，并补 `tests/manifest-contract.test.js` 回归。dev 插件热重载已验证；P1 剩余宿主生命周期场景仍未验证。
+追加轮次（路由技能与常驻规则）：`skills/explore/SKILL.md` 重写为路由技能并补齐 12 个场景技能；新增 `extensions/workflow-rule.mjs` 以 `before_agent_start` 常驻追加路由规则；`manifest.json` 增加 `contributes.agentExtensions` 与 `agent.extension` 权限，`engines.piDesktop` 修正为 `>=0.15.4`。**修正一个宿主陷阱**：13 个技能都叫 `SKILL.md`，宿主按基名派生 id 导致只有 1/13 注册，改为显式 `id` 后 host 日志确认 `count=13`，并补 `tests/manifest-contract.test.js` 回归。dev 插件热重载已验证；P1 剩余宿主生命周期场景随后也已逐项确认（A4 除外，它至今只有单测覆盖）。
 
 ### P3：确定性只读采集
 
@@ -325,7 +325,7 @@ fixtures/
 
 已覆盖：同一输入逐字节相同（含 listFiles 顺序打乱）、动态导入与非字面量 require 产出 `unsupported_input` 且不生成边、相对说明符解析失败产出 `unresolved_reference`、maxFiles 截断与 totalCharBudget/timeoutMs 受控停止、单文件超限跳过但继续分析、敏感与不安全路径从不调用 `readText`、listFiles 抛异常与单文件读取失败不中断、非法选项在接触 source 前失败、模型在所有失败场景下仍通过 `validateModel`、以及未解析项与诊断的稳定排序。超大输入另有一次 679 文件合成仓库实测：默认 `maxFiles` 下读出 499 个并报 `file_limit_reached`、`complete=false`，`maxFiles=5000` 下读出 677 个且 `complete=true`，3 MB 文件在读取前被拒为 `file_too_large` 并计入 `filesSkipped`，重复运行整个模型 JSON 的 SHA-256 相同；采集响应的 240 KiB 上限与逐列表截断由 `tests/response-budget.test.js` 覆盖。数字与结论见 `docs/host-compatibility.md` 的「规模与响应预算实测」。
 
-未完成/限制：`pom.xml` 与 `build.gradle` 适配器已实现但合成项目只覆盖到 `go.mod`/`requirements.txt`/`pyproject.toml`；`unknowns` 保持空数组，未解析项的持久化留待 P5；三个适配器均为面向行的启发式，各自的已知限制写在文件头注释中。宿主已对 `.git`、`node_modules`、`.venv`、`__pycache__` 及凭据路径做了屏蔽，符号链接 containment 也由宿主 `fs` 层负责，采集器不重复实现。软链越界未被独立验证；宿主 `fs.list` 返回的条目是按其自身 `statSync` 结果生成的，未检测重解析点逃逸。P1 的实际宿主加载、权限授予与卸载 E2E 仍未完成，命令与工具的运行仅经过一次真实调用验证。
+未完成/限制：`pom.xml` 与 `build.gradle` 适配器已实现但合成项目只覆盖到 `go.mod`/`requirements.txt`/`pyproject.toml`（这两条代码路径至今零覆盖）；`unknowns` 保持空数组，未解析项的持久化留待 P5；三个适配器均为面向行的启发式，各自的已知限制写在文件头注释中。宿主已对 `.git`、`node_modules`、`.venv`、`__pycache__` 及凭据路径做了屏蔽，符号链接 containment 也由宿主 `fs` 层负责，采集器不重复实现。软链越界已由用户在本机确认（A11），但宿主 `fs.list` 返回的条目是按其自身 `statSync` 结果生成的，采集器未独立复测重解析点逃逸。P1 的宿主加载、权限授予与卸载 E2E 已由用户确认（A1、A8、A9、A10）；命令与工具在本轮及历史多次真实调用中验证（A5）。
 
 ### P4：查询、图关系与影响分析
 
@@ -388,7 +388,7 @@ architecture/
 
 受限分析复用 P4 读取、参数与 240 KiB 响应预算，界面明确展示 `truncated`、停止原因、未解析目标、悬空引用、覆盖不完整、`sourceContentVerified:false`、证据 stale/freshness-unknown。比较要求两个明确路径，影响要求明确节点 ID 或证据路径；不猜 Git、分支、变更集或目标。内存导出预览覆盖 Structurizr DSL、DOT、Mermaid、Draw.io XML、Markdown、JSON、SVG、PNG 和离线 HTML，均包含模型版本、范围、revision、生成时间、图例及限制；不保存、不下载、不写入。PNG 明确为受限格式：没有零依赖图形渲染栈时不生成或伪造二进制。受控浏览器预览通过只服务最小 fixture 的 bridge，已跑通读取、节点详情、unknowns、邻居查询、上游影响、比较、Mermaid 预览与健康检查，并验证覆盖/证据/新鲜度/停止原因的可见呈现。它仍不等同真实 PI-Desktop panel E2E：真实 `onPanelInvoke` 返回形状、面板生命周期及成功/拒绝/超限状态仍待宿主实际验证。
 
-真实宿主 P6 panel E2E（用户确认）已完成核心只读路径：在已安装 r6 中打开 `Architecture: Open Workbench`，载入最小模型后，节点详情、邻居查询、上游影响、同文件比较、Mermaid 预览、PNG 受限说明与健康检查均正常。此结果验证面板核心交互和固定桥接通道；重复打开/关闭/宿主销毁、权限拒绝和超限状态尚未逐项演练。
+真实宿主 P6 panel E2E（用户确认）已完成核心只读路径：在已安装 r6 中打开 `Architecture: Open Workbench`，载入最小模型后，节点详情、邻居查询、上游影响、同文件比较、Mermaid 预览、PNG 受限说明与健康检查均正常。此结果验证面板核心交互和固定桥接通道。重复打开/关闭/宿主销毁、权限拒绝与超限状态随后也已由用户确认（A7、A8、A12，见 `docs/host-acceptance.md`）。安装态副本 `C:\Users\DIY\.pi-desktop\plugins\installed\local.architecture-visualization` 已无注册表条目并经用户同意删除，dev 源是唯一生效源。
 
 退出标准：键盘可操作，中英文和明暗主题可用，窄窗口不丢失关键操作；导出包含模型版本、范围、来源 revision、生成时间、图例和限制。
 
@@ -403,10 +403,10 @@ architecture/
 
 实现 `architecture_save`、`architecture_export` 前，先核实宿主写入能力；`writeText` 不代表提供原子替换或 CAS。没有经过验证的并发安全发布能力时，阻塞覆盖式保存，不以先读后写冒充原子操作。
 
-本轮执行状态（P7）：模型健康检查已完成。`src/core/health.js` 是确定性纯函数，先复用 `validateModel` 的诊断作为合同违规或模型内显式冲突，再从模型自身报告 `coverage.complete:false`、声明的 `unknowns`、节点/边无 `evidenceIds`、以及 `low`/`unknown` 置信度。`architecture_health` 与 panel `architecture.health` 安全读取并解析 JSON；对可解析但无效的模型（包括 JSON `null`），仍保留 `ok:false`、验证诊断与稳定健康发现，而路径、读取、尺寸或 JSON 失败明确拒绝。它不读取源文件、Git、时钟、图或报告产物，始终明确 `sourceContentVerified:false`、`evidenceFreshness:"unknown"` 和 `artifactFreshness:"unknown"`，不会将 revision、fingerprint 或 stale 字段推断为新鲜度。低风险入口仅接收 `{ path }`，读取前限制 2 MiB、结果限制 240 KiB。健康、导出、panel 白名单、受控 bridge 交互、生命周期和畸形输入均有 Node 内置测试；正式 `npm test`（`node --test tests/*.test.js`）为 209/209，当前工作区 `PluginCheck` 无错误通过。由于宿主打包器不排除 `.pi/`/`Temp/`，正式清洁 `.piplug` 只由不含会话文件和临时镜像的干净镜像经官方 `PluginPack` 生成并审计。
+本轮执行状态（P7）：模型健康检查已完成。`src/core/health.js` 是确定性纯函数，先复用 `validateModel` 的诊断作为合同违规或模型内显式冲突，再从模型自身报告 `coverage.complete:false`、声明的 `unknowns`、节点/边无 `evidenceIds`、以及 `low`/`unknown` 置信度。`architecture_health` 与 panel `architecture.health` 安全读取并解析 JSON；对可解析但无效的模型（包括 JSON `null`），仍保留 `ok:false`、验证诊断与稳定健康发现，而路径、读取、尺寸或 JSON 失败明确拒绝。它不读取源文件、Git、时钟、图或报告产物，始终明确 `sourceContentVerified:false`、`evidenceFreshness:"unknown"` 和 `artifactFreshness:"unknown"`，不会将 revision、fingerprint 或 stale 字段推断为新鲜度。低风险入口仅接收 `{ path }`，读取前限制 2 MiB、结果限制 240 KiB。健康、导出、panel 白名单、受控 bridge 交互、生命周期和畸形输入均有 Node 内置测试；正式 `npm test`（`node --test tests/*.test.js`）当前为 251/251，当前工作区 `PluginCheck` 无错误通过（运行时集合 39 文件）。由于宿主打包器不排除 `.pi/`/`Temp/`，正式清洁 `.piplug` 只由不含会话文件和临时镜像的干净镜像经官方 `PluginPack` 生成并审计。
 
 真实宿主 P7 Agent E2E 已完成：`plugin_local_architecture_visualization_architecture_health` 对 `fixtures/valid-minimal-model.json` 返回 `ok:true`、模型摘要（5 节点、3 边、3 证据）、8 条有类别/稳定代码的健康发现与 `sourceContentVerified:false`；证据和产物新鲜度均保持 `unknown`。该调用未写入工作区；P6 panel E2E 仍是独立未验证项。
-
+真实宿主 P7 Agent E2E 已完成：`plugin_local_architecture_visualization_architecture_health` 对 `fixtures/valid-minimal-model.json` 返回 `ok:true`、模型摘要（5 节点、3 边、3 证据）、8 条有类别/稳定代码的健康发现与 `sourceContentVerified:false`；证据和产物新鲜度均保持 `unknown`。该调用未写入工作区。P6 panel E2E 亦已由用户确认（A6，安装态 r6 的核心只读路径），面板生命周期与权限拒绝由 A7/A8/A12 覆盖。
 发布前依次执行：
 
 1. `PluginCheck`，修复所有错误，逐项审阅警告。
