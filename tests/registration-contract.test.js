@@ -140,3 +140,56 @@ test('every whitelisted panel channel reaches a handler', async () => {
     delete global.pi;
   }
 });
+
+// The host validates contributes.views itself (app.asar out/main/index.js):
+// a view needs a non-empty id and an entry that exists inside the plugin
+// directory, views require the ui.view permission, and an icon outside the
+// host's own list is reported as view.unknown-icon. These assertions mirror
+// those rules so a bad entry fails locally instead of at load time.
+const PLUGIN_VIEW_ICONS = Object.freeze([
+  'bell', 'book', 'bot', 'branch', 'browser', 'chat', 'clock', 'diff', 'files',
+  'folder', 'image', 'key', 'link', 'list-checks', 'palette', 'plug',
+  'pull-request', 'search', 'server', 'shield', 'sparkles', 'target',
+  'terminal', 'workflow', 'wrench',
+]);
+
+test('the contributed view satisfies the host view contract', () => {
+  const views = manifest.contributes.views ?? [];
+  assert.ok(views.length > 0, 'the plugin should contribute a docked view');
+  assert.ok(manifest.permissions.includes('ui.view'), 'a contributed view requires the ui.view permission');
+
+  const pluginRoot = path.join(__dirname, '..');
+  const seen = new Set();
+  for (const view of views) {
+    assert.ok(typeof view.id === 'string' && view.id.length > 0, 'a view needs a non-empty id');
+    assert.ok(!seen.has(view.id), `duplicate view id ${view.id}`);
+    assert.match(view.id, /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/, `${view.id} is not a host-legal view id`);
+    seen.add(view.id);
+
+    assert.ok(typeof view.entry === 'string' && view.entry.length > 0, `${view.id} needs an entry`);
+    const resolved = path.join(pluginRoot, ...view.entry.split('/'));
+    assert.ok(resolved.startsWith(pluginRoot + path.sep), `${view.entry} must stay inside the plugin`);
+    assert.ok(fs.existsSync(resolved) && fs.statSync(resolved).isFile(), `${view.entry} must exist inside the plugin`);
+
+    if (view.icon !== undefined) {
+      assert.ok(PLUGIN_VIEW_ICONS.includes(view.icon), `${view.icon} is not a host view icon`);
+    }
+
+    const titles = typeof view.title === 'string' ? [view.title] : Object.values(view.title ?? {});
+    assert.ok(titles.length > 0, `${view.id} needs a title`);
+    assert.ok(titles.every((title) => typeof title === 'string' && title.length > 0), `${view.id} titles must be non-empty strings`);
+  }
+});
+
+test('the docked view shares the panel renderer without an unconditional drag region', () => {
+  assert.equal(manifest.contributes.views[0].entry, manifest.ui.panel, 'the view and the panel share one renderer');
+
+  // Anchored to a line start so it is the bare `.masthead` rule and not the
+  // shape-scoped one below it.
+  const mastheadRule = RENDERER.match(/^\s*\.masthead\s*\{[^}]*\}/m);
+  assert.ok(mastheadRule, 'the renderer should style .masthead');
+  assert.doesNotMatch(mastheadRule[0], /-webkit-app-region/,
+    'the bare .masthead rule must not be a drag region, or the docked view inherits it');
+  assert.match(RENDERER, /html\[data-pi-plugin-panel-shape="panel"\]\s*\.masthead\s*\{[^}]*-webkit-app-region:\s*drag/,
+    'the drag region must be scoped to the floating panel shape');
+});

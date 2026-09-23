@@ -61,6 +61,7 @@ test('every path the manifest declares is inside the ship set', () => {
     manifest.ui.panel,
     ...manifest.contributes.agentExtensions,
     ...manifest.contributes.skills.map((entry) => entry.path),
+    ...(manifest.contributes.views ?? []).map((view) => view.entry),
   ];
   for (const declaredPath of declared) {
     assert.ok(SHIP_FILES.includes(declaredPath), `${declaredPath} is declared by the manifest but is not shipped`);

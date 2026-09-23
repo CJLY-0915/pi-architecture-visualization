@@ -33,6 +33,15 @@
       { "id": "architecture-visualization.validate", "title": "Architecture: Validate Model", "keywords": ["architecture", "validate", "health", "校验", "健康"], "category": "Architecture" },
       { "id": "architecture-visualization.collect", "title": "Architecture: Collect Current State", "keywords": ["architecture", "collect", "scan", "采集", "扫描"], "category": "Architecture" }
     ],
+    "views": [
+      {
+        "id": "workbench",
+        "title": { "en": "Architecture Visualization", "zh-CN": "架构可视化" },
+        "icon": "workflow",
+        "entry": "renderer/index.html",
+        "order": 30
+      }
+    ],
     "skills": [
       { "id": "explore", "path": "skills/explore/SKILL.md" },
       { "id": "system-modeler", "path": "skills/system-modeler/SKILL.md" },
@@ -152,7 +161,7 @@
       { "key": "maxFiles", "title": "Maximum files per analysis", "type": "number", "default": 500 }
     ]
   },
-  "permissions": ["ui.panel", "agent.prompt.inject", "agent.tool.register", "agent.extension", "fs.read"],
+  "permissions": ["ui.panel", "ui.view", "agent.prompt.inject", "agent.tool.register", "agent.extension", "fs.read"],
   "fs": {
     "read": { "root": "workspace", "scope": ["**/*"] }
   },

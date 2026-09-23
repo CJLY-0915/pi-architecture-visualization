@@ -42,7 +42,11 @@
       outline: 2px solid var(--evidence); outline-offset: 3px;
     }
     .shell { min-height: 100dvh; padding: calc(var(--pi-plugin-titlebar-height, 46px) + 24px) clamp(16px, 3vw, 44px) 32px; background: radial-gradient(900px 500px at 100% 0%, #112a3b 0%, transparent 65%), linear-gradient(110deg, #0b111b, #0c141f); }
-    .masthead { -webkit-app-region: drag; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; max-width: 1540px; margin: 0 auto 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .masthead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; max-width: 1540px; margin: 0 auto 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    /* Only the floating panel window has a titlebar to drag. The host marks the
+       docked view with data-pi-plugin-panel-shape="view", where a drag region
+       has no window to move and would swallow clicks and text selection. */
+    html[data-pi-plugin-panel-shape="panel"] .masthead { -webkit-app-region: drag; }
     .eyebrow { margin: 0 0 6px; color: var(--evidence); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
     h1 { margin: 0; font-size: clamp(23px, 3vw, 32px); font-weight: 650; letter-spacing: -.035em; }
     .lede { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
