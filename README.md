@@ -122,8 +122,8 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 
 ## 本轮验证
 
-- `npm test`：251 通过，0 失败；脚本固定为 `node --test tests/*.test.js`（不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。覆盖受控 `pluginBridge` 面板交互、固定通道白名单、内存导出边界、P7 无效模型诊断回归、采集响应预算与 coverage 账本落盘，以及 manifest 贡献合同（13 条技能显式 id 与唯一性、agent 扩展声明）、注册面与 manifest 的双向一致、技能描述长度与路由表完整性、零依赖常驻规则的幂等性。
-- `PluginCheck`：当前工作区无错误通过；**仅复制运行时集合**（`main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`）的干净镜像经同一官方校验为 **39 个文件**。该集合由 `tests/package-scope.test.js` 断言，并与 `docs/host-compatibility.md` 记录一致。两次检查均仅提示 `agent.prompt.inject`、`agent.tool.register` 需用户显式授予的高风险权限；注册表中这两项与 `agent.extension` 均已显式授予。
+- `npm test`：252 通过，0 失败；脚本固定为 `node --test tests/*.test.js`（不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。覆盖受控 `pluginBridge` 面板交互、固定通道白名单、内存导出边界、P7 无效模型诊断回归、采集响应预算与 coverage 账本落盘，以及 manifest 贡献合同（13 条技能显式 id 与唯一性、agent 扩展声明）、注册面与 manifest 的双向一致、技能描述长度与路由表完整性、零依赖常驻规则的幂等性，和 `pom.xml`/`build.gradle` 被显式报为未建模而非静默忽略。
+- `PluginCheck`：当前工作区无错误通过；**仅复制运行时集合**（`main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`）的干净镜像经同一官方校验为 **40 个文件**（含 `src/core/compare-strings.js`）。该集合由 `tests/package-scope.test.js` 断言，并与 `docs/host-compatibility.md` 记录一致。两次检查均仅提示 `agent.prompt.inject`、`agent.tool.register` 需用户显式授予的高风险权限；注册表中这两项与 `agent.extension` 均已显式授予。
 - `PluginPack`：已生成并审计 `dist/` 中的最终清洁交付包。因当前宿主打包器不排除 `.pi/` 或 `Temp/`，该包由不含会话目标文件与临时镜像的干净镜像经官方打包器生成；包内无 `.pi`、缓存、临时目录、凭据形文件、`node_modules`、网络权限或远程 CDN。分发版走“已安装插件”路径，没有 dev 插件的权限审查 UI，装机时权限清单需在安装流程中呈现。
 
 ## 设计原则
