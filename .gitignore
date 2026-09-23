@@ -1,7 +1,24 @@
+# Local-only artifacts: never committed, never packaged.
+#
+# The packaged artifact is built from a clean image (see
+# docs/host-compatibility.md), so this list is about git only. The runtime ship
+# set is asserted by tests/package-scope.test.js.
 node_modules/
 dist/
-.cache/
-coverage/
-*.log
 Temp/
 .pi/
+coverage/
+.cache/
+*.log
+
+# Architecture model of this repository itself: local working notes, not part of
+# the plugin's source or its distributable.
+architecture/
+
+# OS and editor noise.
+.DS_Store
+Thumbs.db
+desktop.ini
+*.local
+.vscode/
+.idea/

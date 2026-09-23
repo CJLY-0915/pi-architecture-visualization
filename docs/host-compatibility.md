@@ -9,10 +9,10 @@
 - 当前插件版本：`0.1.0`
 - 核验工具：PI-Desktop `PluginCheck`；宿主实现核验来源 `D:\Program Files\PI-Desktop\resources\app.asar`
 - 宿主版本：PI-Desktop **0.15.4**（`D:\\Program Files\\PI-Desktop\\resources\\app.asar` 内 `package.json`，用 asar 头偏移读取）；`engines.piDesktop` 已由虚假的 `>=0.1.0` 修正为 `>=0.15.4`
-- 生效形态：开发源即生效源，已通过插件页“加载本地插件”注册为 dev 插件（注册表 `source=dev`、`permissions` 含 `agent.extension`、`capabilities` 含 `agentExtension`，且只有一条条目）。原安装态副本 `C:\\Users\\DIY\\.pi-desktop\\plugins\\installed\\local.architecture-visualization` 已无注册表条目，成为磁盘孤儿副本，删除需用户明确同意
-- 核验结果：当前工作区 `PluginCheck` 无错误通过（包含本轮留在 `Temp/` 的一次性打包镜像）；不含 `.pi`/`Temp` 的清洁镜像经官方校验为 70 文件。官方 `PluginPack` 已生成并审计 `dist/` 中的最终清洁交付包；宿主打包器本身不会排除 `.pi/` 或 `Temp/`，故正式包必须来自该干净镜像。审计确认包内没有 `.pi`、缓存/临时目录、凭据形文件、`node_modules`、网络权限或远程 CDN。
-- 开发源已初始化为 Git 仓库（`main` 分支，本轮 `git init` + 首次提交），`.gitignore` 排除 `Temp/`、`dist/`、`.pi/`、`node_modules/`
-- 宿主版本已取得（0.15.4）；完整独立的宿主 panel E2E 运行报告仍未取得
+- 生效形态：开发源即生效源，已通过插件页"加载本地插件"注册为 dev 插件（注册表 `source=dev`、`permissions` 含 `agent.extension`、`capabilities` 含 `agentExtension`，且只有一条条目）。原安装态副本 `C:\\Users\\DIY\\.pi-desktop\\plugins\\installed\\local.architecture-visualization` 已无注册表条目，经用户同意后删除，dev 源是唯一生效源。
+- 分发镜像：**运行时集合，共 39 文件** —— `main.js`、`manifest.json`、`package.json`、`src/`、`extensions/`、`renderer/`、`skills/`。该集合由 `tests/package-scope.test.js` 断言（manifest 声明路径齐全、全部 `require()` 目标可解析、开发资产被排除），并已用干净镜像实测：只复制这 7 个根后 `PluginCheck` 报告 `39 file(s) would be packaged`、无错误。`tests/`、`fixtures/`、`docs/`、`.github/`、`README.md`、`PLAN.md` 只进仓库不进包；`architecture/`（本仓库自身的架构模型）、`Temp/`、`dist/`、`.pi/` 只留在本地。宿主打包器**不读取 `.gitignore`**，因此打包范围靠上述门禁与干净镜像保证，不靠 git 忽略规则。
+- 版本控制：开发源是 Git 仓库（`main` 分支）；`architecture/`、`Temp/`、`dist/`、`.pi/`、`node_modules/`、系统与编辑器垃圾均在 `.gitignore` 中，不被跟踪。
+- 完整独立的宿主 panel E2E 运行报告仍未取得（见 [host-acceptance.md](./host-acceptance.md) 的 ⬜ 项）。
 
 ## 已核验合同
 
