@@ -168,6 +168,19 @@ async function collect({ source, options }) {
   let totalChars = 0;
   let complete = readable.length === candidates.length;
 
+  // Everything listed was ignored or fell outside the scope roots. An empty
+  // model here means "this tool withheld the whole scope by policy", which is
+  // not the same claim as "the project is empty", so coverage cannot be
+  // reported as complete and the reason has to be visible.
+  if (listed.length > 0 && candidates.length === 0) {
+    diagnostics.push({
+      code: CODES.NO_FILES_IN_SCOPE,
+      path: '',
+      message: `${listed.length} file(s) were listed and all of them were ignored or outside the scope roots; nothing was scanned.`,
+    });
+    complete = false;
+  }
+
   for (let index = 0; index < readable.length; index += 1) {
     const path = readable[index];
     if (options.now() - startedAt > options.timeoutMs) {

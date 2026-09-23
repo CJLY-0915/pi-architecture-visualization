@@ -490,3 +490,33 @@ test('the injected source is not mutated', async () => {
 
   assert.equal(JSON.stringify(entries), snapshot);
 });
+
+test('a scope whose every file is ignored is not reported as a complete empty project', async () => {
+  // `temp` is on the ignore list, so pointing the collector at such a directory
+  // lists files and scans none. That is a withheld scope, not an empty project.
+  const entries = {
+    'Temp/bigrepo/src/a.js': "const b = require('./b.js');\n",
+    'Temp/bigrepo/src/b.js': 'module.exports = 1;\n',
+  };
+  const { result } = await collect(entries, { scopeRoots: ['Temp/bigrepo'] });
+
+  assert.equal(result.coverage.filesListed, 2);
+  assert.equal(result.coverage.filesScanned, 0);
+  assert.equal(result.coverage.complete, false, 'a fully ignored scope must not claim complete coverage');
+  assert.equal(result.ok, true, 'the run itself succeeded; only coverage is limited');
+  assert.equal(result.model.nodes.length, 0);
+  const reported = codesOf(result.diagnostics, CODES.NO_FILES_IN_SCOPE);
+  assert.equal(reported.length, 1, 'the reason must be visible in the diagnostics');
+  assert.match(reported[0].message, /2 file/);
+});
+
+test('an empty listing is still reported as complete', async () => {
+  // Nothing was listed, so nothing was withheld: that is the one case where an
+  // empty model may claim complete coverage.
+  const { result } = await collect({}, { scopeRoots: ['.'] });
+
+  assert.equal(result.coverage.filesListed, 0);
+  assert.equal(result.coverage.filesScanned, 0);
+  assert.equal(result.coverage.complete, true);
+  assert.equal(codesOf(result.diagnostics, CODES.NO_FILES_IN_SCOPE).length, 0);
+});
