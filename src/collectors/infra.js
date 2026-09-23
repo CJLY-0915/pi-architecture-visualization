@@ -21,8 +21,14 @@ const { containerNodeId, edgeId } = require('./ids');
 // Everything else this adapter matches is indexed only: exactly one
 // `unsupported_input` entry and no node or edge. That covers OpenAPI/Swagger
 // documents (basename starting with `openapi.` or `swagger.`), GitHub Actions
-// workflows (`.github/workflows/*.yml|*.yaml`), Terraform files (*.tf) and any
-// other .yml/.yaml file.
+// workflows (`.github/workflows/*.yml|*.yaml`), Terraform files (*.tf),
+// Maven (`pom.xml`) and Gradle (`build.gradle[.kts]`,
+// `settings.gradle[.kts]`) build files, and any other .yml/.yaml file.
+//
+// Java build files are matched only so that they are reported. Deriving
+// nothing from them while not matching them either would leave a Maven or
+// Gradle project looking like a project with no infrastructure, with no
+// diagnostic saying so.
 //
 // Limitations, reported instead of guessed:
 //   - a compose file without a top-level `services:` line reports
@@ -52,6 +58,10 @@ const YAML_EXTENSIONS = Object.freeze(['.yml', '.yaml']);
 const OPENAPI_PREFIXES = Object.freeze(['openapi.', 'swagger.']);
 const CI_WORKFLOW_PATTERN = /^\.github\/workflows\/.+\.ya?ml$/;
 const TERRAFORM_EXTENSION = '.tf';
+const MAVEN_FILE_NAMES = Object.freeze(['pom.xml']);
+const GRADLE_FILE_NAMES = Object.freeze([
+  'build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts',
+]);
 const SERVICES_LINE = 'services:';
 const KIND_PATTERN = /^kind:\s*(\S+)/;
 const METADATA_LINE_PATTERN = /^metadata:\s*$/;
@@ -70,6 +80,14 @@ function basenameOf(path) {
 
 function isYamlName(name) {
   return YAML_EXTENSIONS.some((extension) => name.endsWith(extension));
+}
+
+function isJavaBuildName(name) {
+  return MAVEN_FILE_NAMES.includes(name) || GRADLE_FILE_NAMES.includes(name);
+}
+
+function javaBuildLabel(name) {
+  return MAVEN_FILE_NAMES.includes(name) ? 'Maven' : 'Gradle';
 }
 
 // Cuts the line at the first "#" and drops trailing blanks; leading indentation
@@ -255,13 +273,19 @@ module.exports = {
         return COMPOSE_FILE_NAMES.includes(base)
           || isYamlName(base)
           || OPENAPI_PREFIXES.some((prefix) => base.startsWith(prefix))
-          || base.endsWith(TERRAFORM_EXTENSION);
+          || base.endsWith(TERRAFORM_EXTENSION)
+          || isJavaBuildName(base);
       },
       analyze(file, context) {
         const base = basenameOf(file.path);
 
         if (COMPOSE_FILE_NAMES.includes(base)) {
           analyzeCompose(file, context);
+          return;
+        }
+
+        if (isJavaBuildName(base)) {
+          reportUnsupported(context, file.path, `${javaBuildLabel(base)} build files are not modelled by this collector.`);
           return;
         }
 
@@ -292,7 +316,4 @@ module.exports = {
       },
     };
   },
-  COMPOSE_FILE_NAMES,
-  OPENAPI_PREFIXES,
-  CI_WORKFLOW_PATTERN,
 };

@@ -33,18 +33,16 @@
 // directory, and depth. Each bound that is hit is recorded, so a bounded scan is
 // always visible as incomplete rather than as a small project.
 
+const { compareStrings } = require('../core/compare-strings');
+
 const HOST_LIST_CAP = 1000;
 const DEFAULT_MAX_DIRECTORIES = 2000;
 const DEFAULT_MAX_DIRECTORY_ENTRIES = 10000;
-const DEFAULT_MAX_DEPTH = 32;
+const DEFAULT_MAX_DIRECTORY_DEPTH = 32;
 const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 const UNSAFE_CHARACTER_PATTERN = /[:\\\u0000-\u001f\u007f-\u009f]/;
 
-function compareStrings(left, right) {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
-}
 
 // Mirrors the entry's path rules: control characters and ":" are rejected so a
 // host-supplied entry can never become a surprising filename.
@@ -109,7 +107,7 @@ function createHostSource(pi, options) {
   const maxDirectoryEntries = settings.maxDirectoryEntries === undefined
     ? DEFAULT_MAX_DIRECTORY_ENTRIES
     : settings.maxDirectoryEntries;
-  const maxDepth = settings.maxDepth === undefined ? DEFAULT_MAX_DEPTH : settings.maxDepth;
+  const maxDepth = settings.maxDepth === undefined ? DEFAULT_MAX_DIRECTORY_DEPTH : settings.maxDepth;
   const maxFileBytes = settings.maxFileBytes === undefined ? DEFAULT_MAX_FILE_BYTES : settings.maxFileBytes;
 
   const limits = [];
@@ -225,11 +223,4 @@ function createHostSource(pi, options) {
   return { source: { listFiles, readText }, limits, get listed() { return covered; } };
 }
 
-module.exports = {
-  createHostSource,
-  HOST_LIST_CAP,
-  DEFAULT_MAX_DIRECTORIES,
-  DEFAULT_MAX_DIRECTORY_ENTRIES,
-  DEFAULT_MAX_DEPTH,
-  DEFAULT_MAX_FILE_BYTES,
-};
+module.exports = { createHostSource };

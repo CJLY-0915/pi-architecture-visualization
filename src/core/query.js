@@ -1,6 +1,7 @@
 'use strict';
 
-const { createGraph, edgesOutOf, edgesInto, compareStrings, EMPTY } = require('./graph');
+const { createGraph, edgesOutOf, edgesInto, EMPTY } = require('./graph');
+const { compareStrings } = require('./compare-strings');
 const { ENUMS } = require('./validation');
 const { CODES } = require('./error-codes');
 
@@ -39,7 +40,7 @@ const EDGE_FILTER_FIELDS = Object.freeze(['relationTypes']);
 const SHARED_FILTER_FIELDS = Object.freeze(['statuses', 'confidences', 'evidenceTypes']);
 
 
-const DEFAULT_MAX_DEPTH = 3;
+const DEFAULT_QUERY_DEPTH = 3;
 const DEFAULT_MAX_NODES = 500;
 const DEFAULT_MAX_TIME_MS = 1000;
 const DEFAULT_MAX_STEPS = 10000;
@@ -99,12 +100,12 @@ function readLimit(options, name, fallback, errors) {
  *
  * @returns {{ok: boolean, errors: Array<{path: string, message: string}>, limits: object, filters: object}}
  */
-function normalizeOptions(rawOptions) {
+function normalizeQueryOptions(rawOptions) {
   const options = isPlainObject(rawOptions) ? rawOptions : {};
   const errors = [];
 
   const limits = {
-    maxDepth: readLimit(options, 'maxDepth', DEFAULT_MAX_DEPTH, errors),
+    maxDepth: readLimit(options, 'maxDepth', DEFAULT_QUERY_DEPTH, errors),
     maxNodes: readLimit(options, 'maxNodes', DEFAULT_MAX_NODES, errors),
     maxSteps: readLimit(options, 'maxSteps', DEFAULT_MAX_STEPS, errors),
     maxTimeMs: readLimit(options, 'maxTimeMs', DEFAULT_MAX_TIME_MS, errors),
@@ -279,7 +280,7 @@ function traverseBounded(graph, seeds, options) {
   const maxSteps = readLimit(options, 'maxSteps', DEFAULT_MAX_STEPS, errors);
   if (errors.length) return emptyResult(errors[0]);
   const now = checkedClock(options.now);
-  const { direction = 'downstream', relationTypes, maxDepth = DEFAULT_MAX_DEPTH,
+  const { direction = 'downstream', relationTypes, maxDepth = DEFAULT_QUERY_DEPTH,
     maxNodes = DEFAULT_MAX_NODES, maxTimeMs = DEFAULT_MAX_TIME_MS } = options;
   const visited = new Map();
   const seedIds = new Set(seeds);
@@ -406,7 +407,7 @@ function resolveGraph(input) {
 function queryModel(input) {
   try {
     const request = isPlainObject(input) ? input : {};
-    const normalized = normalizeOptions(request);
+    const normalized = normalizeQueryOptions(request);
     if (!normalized.ok) {
       return { ok: false, error: { code: CODES.INVALID_OPTION, path: normalized.errors[0].path, message: normalized.errors[0].message }, diagnostics: normalized.errors, nodes: [], edges: [], totalNodes: 0, totalEdges: 0, truncated: false, dangling: [] };
     }
@@ -461,7 +462,7 @@ function queryNeighbours(input) {
     if (!DIRECTIONS.includes(direction)) return emptyResult(optionError('direction', '"direction" must be upstream, downstream or both.'));
     const relationTypes = readRelationTypes(request);
     if (relationTypes.error !== undefined) return emptyResult(relationTypes.error);
-    const normalized = normalizeOptions(request);
+    const normalized = normalizeQueryOptions(request);
     if (!normalized.ok) return emptyResult(normalized.errors[0]);
 
     const graph = resolveGraph(request);
@@ -572,7 +573,7 @@ function queryPaths(input) {
     if (typeof request.to !== 'string' || request.to === '') return emptyResult(optionError('to', '"to" must be a non-empty node id.'));
     const direction = request.direction === undefined ? 'downstream' : request.direction;
     if (!DIRECTIONS.includes(direction)) return emptyResult(optionError('direction', '"direction" must be upstream, downstream or both.'));
-    const normalized = normalizeOptions(request);
+    const normalized = normalizeQueryOptions(request);
     if (!normalized.ok) {
       return emptyResult({ code: CODES.INVALID_OPTION, path: normalized.errors[0].path, message: normalized.errors[0].message });
     }
@@ -705,7 +706,7 @@ function queryCycles(input) {
     const request = isPlainObject(input) ? input : {};
     const direction = request.direction === undefined ? 'downstream' : request.direction;
     if (!DIRECTIONS.includes(direction)) return emptyResult(optionError('direction', '"direction" must be upstream, downstream or both.'));
-    const normalized = normalizeOptions(request);
+    const normalized = normalizeQueryOptions(request);
     if (!normalized.ok) {
       return emptyResult({ code: CODES.INVALID_OPTION, path: normalized.errors[0].path, message: normalized.errors[0].message });
     }
@@ -840,13 +841,6 @@ module.exports = {
   queryNeighbours,
   queryPaths,
   queryCycles,
-  normalizeOptions,
-  createGraph,
+  normalizeQueryOptions,
   traverse,
-  pendingEdges,
-  DEFAULT_MAX_DEPTH,
-  DEFAULT_MAX_NODES,
-  DEFAULT_MAX_TIME_MS,
-  DEFAULT_MAX_STEPS,
-  EMPTY,
 };

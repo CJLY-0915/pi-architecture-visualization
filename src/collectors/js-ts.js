@@ -253,4 +253,4 @@ function create() {
   };
 }
 
-module.exports = { id: 'js-ts', create, SOURCE_EXTENSIONS };
+module.exports = { id: 'js-ts', create };

@@ -35,8 +35,8 @@ Agent 工具内部名为 `architecture_validate`，参数为 `{ "path": "fixture
 | 适配器 | 支持范围 | 明确不建模（产出 `unsupported_input`，只索引） |
 | --- | --- | --- |
 | `js-ts` | 静态 `import`/`export ... from`、字符串字面量 `require()`/`import()`、相对与根相对说明符、`package.json` 中的裸包声明 | 非字面量 `import()`/`require()`、tsconfig 路径映射、`exports`/`main` 解析、re-export 桶文件 |
-| `manifests` | `package.json`、`requirements.txt`、`pyproject.toml`（仅 `[project]`/`[tool.poetry]` 的单行 `dependencies`）、`go.mod`、`pom.xml`、`build.gradle` 的 `group:artifact:version` 字符串 | 多行或表形式的 TOML 依赖、`project(':core')` 等 Gradle 记法、其它包管理器 |
-| `infra` | Compose 顶层服务与 `depends_on`、Kubernetes 清单的 `kind` + `metadata.name` | OpenAPI/Swagger、CI 工作流、Terraform 及其它 YAML |
+| `manifests` | `package.json`、`requirements.txt`、`pyproject.toml`（仅 `[project]`/`[tool.poetry]` 的单行 `dependencies`）、`go.mod` 的 `group:artifact:version` 字符串 | 多行或表形式的 TOML 依赖、`project(':core')` 等 Gradle 记法、其它包管理器（含 `pom.xml`/`build.gradle`，见 `infra` 行） |
+| `infra` | Compose 顶层服务与 `depends_on`、Kubernetes 清单的 `kind` + `metadata.name` | OpenAPI/Swagger、CI 工作流、Terraform、其它 YAML，以及 `pom.xml` 与 `build.gradle`/`build.gradle.kts`/`settings.gradle`/`settings.gradle.kts`——这些 Java 构建文件被匹配只为显式报 `unsupported_input`，不产出节点或边 |
 
 所有适配器都是面向行的启发式解析，不是完整解析器；每个文件头部注释声明了各自的已知限制。采集边界：
 

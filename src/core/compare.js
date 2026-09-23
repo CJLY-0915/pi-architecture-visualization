@@ -1,6 +1,6 @@
 'use strict';
 
-const { compareStrings } = require('./graph');
+const { compareStrings } = require('./compare-strings');
 const { CODES } = require('./error-codes');
 
 // Deterministic comparison between two architecture models (for example a
@@ -404,8 +404,5 @@ function compareModels(input) {
 
 module.exports = {
   compareModels,
-  NODE_FIELDS,
-  EDGE_FIELDS,
-  EVIDENCE_FIELDS,
   ID_ONLY_COLLECTIONS,
 };

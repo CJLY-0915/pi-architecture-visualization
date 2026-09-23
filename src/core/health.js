@@ -16,7 +16,7 @@
 
 const { validateModel } = require('./validation');
 const { CODES } = require('./error-codes');
-const { compareStrings } = require('./graph');
+const { compareStrings } = require('./compare-strings');
 
 const SEVERITY_ERROR = 'error';
 const SEVERITY_WARNING = 'warning';
@@ -315,4 +315,4 @@ function healthCheck(model) {
   }
 }
 
-module.exports = { healthCheck, CATEGORIES, LIMITATIONS };
+module.exports = { healthCheck, CATEGORIES };

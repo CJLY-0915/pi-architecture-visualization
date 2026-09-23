@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createGraph, traverse, queryPaths, queryCycles, queryNeighbours, normalizeOptions } = require('../src/core/query');
+const { createGraph } = require('../src/core/graph');
+const { traverse, queryPaths, queryCycles, queryNeighbours, normalizeQueryOptions } = require('../src/core/query');
 const { CODES, isKnownCode } = require('../src/core/error-codes');
 
 function model(ids, pairs) {
@@ -151,7 +152,7 @@ test('query time budgets use only injected time, with a deterministic default', 
 
 test('option failures and diagnostics use registered codes', () => {
   for (const options of [{ now: 7 }, { maxNodes: 0 }, { maxDepth: -1 }, { maxTimeMs: NaN }, { types: ['nope'] }]) {
-    const normalized = normalizeOptions(options);
+    const normalized = normalizeQueryOptions(options);
     assert.equal(normalized.ok, false);
     assert.ok(normalized.errors.every((error) => isKnownCode(error.code)));
   }

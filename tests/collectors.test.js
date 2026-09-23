@@ -309,6 +309,22 @@ test('config types that are not modelled are indexed instead of faked', async ()
     ['.github/workflows/ci.yml', 'infra/main.tf', 'openapi.yaml'],
   );
 });
+test('Maven and Gradle build files are reported instead of silently ignored', async () => {
+  const { result } = await collect({
+    'pom.xml': '<project><artifactId>app</artifactId></project>\n',
+    'build.gradle': "apply plugin: 'java'\n",
+    'settings.gradle.kts': 'rootProject.name = "app"\n',
+    'src/app.js': 'export const value = 1;\n',
+  });
+
+  assert.equal(result.validation.valid, true);
+  assert.deepEqual(result.model.nodes.map((node) => node.id), ['file:src/app.js']);
+  assert.deepEqual(result.model.edges, []);
+
+  const javaBuilds = codesOf(result.unresolved, CODES.UNSUPPORTED_INPUT);
+  assert.deepEqual(javaBuilds.map((entry) => entry.path), ['build.gradle', 'pom.xml', 'settings.gradle.kts']);
+  assert.ok(javaBuilds.every((entry) => /Maven|Gradle/.test(entry.message)));
+});
 
 test('reaching maxFiles truncates deterministically and marks coverage incomplete', async () => {
   const entries = {};

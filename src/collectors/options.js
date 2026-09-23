@@ -119,7 +119,7 @@ function normalizeScopeRoots(options, diagnostics, invalid) {
  *   treated as an empty object so the missing required fields are reported.
  * @returns {{ok: boolean, diagnostics: Array<{code: string, path: string, message: string}>, projectId: string, generatedAt: string, sourceRevision: string|null, scopeRoots: string[], maxFiles: number, maxFileChars: number, totalCharBudget: number, timeoutMs: number, now: () => number}}
  */
-function normalizeOptions(rawOptions) {
+function normalizeCollectOptions(rawOptions) {
   const diagnostics = [];
   const options = isPlainObject(rawOptions) ? rawOptions : {};
   const invalid = (path, message) => diagnostics.push({ code: CODES.INVALID_OPTION, path, message });
@@ -174,4 +174,4 @@ function normalizeOptions(rawOptions) {
   };
 }
 
-module.exports = { normalizeOptions, DEFAULTS, DEFAULT_SCOPE_ROOTS };
+module.exports = { normalizeCollectOptions };

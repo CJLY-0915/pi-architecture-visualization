@@ -2,7 +2,7 @@
 
 const { CODES } = require('../core/error-codes');
 const { validateModel } = require('../core/validation');
-const { normalizeOptions } = require('./options');
+const { normalizeCollectOptions } = require('./options');
 const { collect } = require('./inventory');
 const { evidenceId } = require('./ids');
 const jsTs = require('./js-ts');
@@ -44,10 +44,7 @@ function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function compareStrings(left, right) {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
-}
+const { compareStrings } = require('../core/compare-strings');
 
 // Diagnostics and unresolved entries share one shape, so they share one order.
 function compareEntries(left, right) {
@@ -275,7 +272,7 @@ function hasCompletenessGap(entries) {
 
 async function collectModel(input) {
   const request = isPlainObject(input) ? input : {};
-  const options = normalizeOptions(request.options);
+  const options = normalizeCollectOptions(request.options);
 
   // Invalid options abort before the source is touched: guessing a project id or
   // a timestamp would produce a model that looks authoritative but is not.

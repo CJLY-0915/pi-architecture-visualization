@@ -359,5 +359,4 @@ module.exports = {
       },
     };
   },
-  MANIFEST_NAMES,
 };

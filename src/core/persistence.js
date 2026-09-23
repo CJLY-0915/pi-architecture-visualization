@@ -3,16 +3,13 @@
 const crypto = require('node:crypto');
 const { validateModel } = require('./validation');
 const { CODES } = require('./error-codes');
+const { compareStrings } = require('./compare-strings');
 
 const SNAPSHOT_DIRECTORY = 'architecture/snapshots';
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/;
 const ID_SORTED_COLLECTIONS = new Set([
   'nodes', 'edges', 'evidence', 'views', 'findings', 'decisions', 'migrationSlices', 'unknowns',
 ]);
-
-function compareStrings(left, right) {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
 
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

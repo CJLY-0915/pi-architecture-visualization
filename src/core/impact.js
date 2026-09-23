@@ -1,6 +1,7 @@
 'use strict';
 
-const { createGraph, edgesOutOf, edgesInto, otherEnd, compareStrings } = require('./graph');
+const { createGraph, edgesOutOf, edgesInto, otherEnd } = require('./graph');
+const { compareStrings } = require('./compare-strings');
 
 const { CODES } = require('./error-codes');
 const { ENUMS } = require('./validation');
@@ -10,7 +11,7 @@ const DIRECTIONS = Object.freeze(['downstream', 'upstream', 'both']);
 const KNOWN_RELATION_SET = new Set(ENUMS.RELATION_TYPES);
 
 const DEFAULT_DIRECTION = 'downstream';
-const DEFAULT_MAX_DEPTH = 5;
+const DEFAULT_IMPACT_DEPTH = 5;
 const DEFAULT_MAX_NODES = 500;
 const DEFAULT_MAX_TIME_MS = 1000;
 
@@ -144,7 +145,7 @@ function followsRelation(type, relationTypes) {
   return relationTypes.has(type);
 }
 
-function normalizeOptions(options) {
+function normalizeImpactOptions(options) {
   if (!hasOwn(options, 'targets') || options.targets === undefined) {
     if (options.changeSource !== undefined || options.branch !== undefined) {
       return { error: { code: CODES.CHANGE_SOURCE_UNAVAILABLE, message: 'Explicit targets are required; branch and changeSource cannot be resolved without an injected change provider.' } };
@@ -182,7 +183,7 @@ function normalizeOptions(options) {
     relationTypes = new Set(options.relationTypes);
   }
 
-  let maxDepth = DEFAULT_MAX_DEPTH;
+  let maxDepth = DEFAULT_IMPACT_DEPTH;
   if (hasOwn(options, 'maxDepth') && options.maxDepth !== undefined) {
     if (!isPositiveInteger(options.maxDepth)) {
       return { error: invalidOption('maxDepth', `an integer >= 1 is required; received ${describe(options.maxDepth)}.`) };
@@ -485,7 +486,7 @@ function traverse(graph, seeds, settings) {
 function run(input) {
   const options = isPlainObject(input) ? input : {};
 
-  const normalized = normalizeOptions(options);
+  const normalized = normalizeImpactOptions(options);
   if (normalized.error !== undefined) return errorResult(normalized.error);
 
   const resolved = resolveGraph(options);

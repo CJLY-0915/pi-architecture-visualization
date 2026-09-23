@@ -135,4 +135,4 @@ function exportPreview(model, format) {
   }
 }
 
-module.exports = { exportPreview, FORMATS, MIME_TYPES };
+module.exports = { exportPreview, FORMATS };

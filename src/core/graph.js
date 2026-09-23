@@ -1,5 +1,7 @@
 'use strict';
 
+const { compareStrings } = require('./compare-strings');
+
 // Deterministic graph index over a v1 architecture model.
 //
 // The index is the single traversal foundation for every P4 query: filters,
@@ -15,10 +17,6 @@
 // that did not, and an unreadable edge could otherwise silently shrink a
 // neighbourhood.
 
-function compareStrings(left, right) {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
-}
 
 function listOf(map, key) {
   const existing = map.get(key);
@@ -105,4 +103,4 @@ function otherEnd(edge, nodeId) {
   return edge.source === nodeId ? edge.target : edge.source;
 }
 
-module.exports = { createGraph, edgesOutOf, edgesInto, otherEnd, compareStrings, EMPTY };
+module.exports = { createGraph, edgesOutOf, edgesInto, otherEnd, EMPTY };
