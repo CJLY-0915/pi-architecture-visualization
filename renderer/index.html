@@ -127,7 +127,8 @@
     .save-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
     .save-form .field { width: 100%; }
     .save-form .button { min-height: 36px; }
-    .save-state { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid var(--line-strong); background: var(--paper-inset); color: var(--muted); font-size: 12px; line-height: 1.5; }
+    /* A content-addressed snapshot path is a single 88-character token with no spaces, so without a break rule it pushes the panel into a horizontal scrollbar. Every other container that can carry a path already breaks anywhere. */
+    .save-state { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid var(--line-strong); background: var(--paper-inset); color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
     .save-state[data-kind="loading"] { border-left-color: var(--evidence); color: #b7dae4; }
     .save-state[data-kind="ready"] { border-left-color: var(--ok); color: #b7c9c0; }
     .save-state[data-kind="warning"] { border-left-color: var(--amber); color: #e9ca90; background: #17140f; }
@@ -171,7 +172,8 @@
     .analysis-form p { margin: 0 0 4px; color: var(--faint); font-size: 11px; line-height: 1.45; }
     .analysis-form .field { width: 100%; }
     .analysis-form .button { min-height: 36px; justify-self: start; }
-    .analysis-status { margin-top: 14px; padding: 10px; border-left: 3px solid var(--line-strong); background: var(--paper-inset); color: var(--muted); font-size: 12px; line-height: 1.45; }
+    /* Analysis errors quote the model path, so this status line needs the same break rule as the save status. */
+    .analysis-status { margin-top: 14px; padding: 10px; border-left: 3px solid var(--line-strong); background: var(--paper-inset); color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
     .analysis-status[data-kind="loading"] { border-left-color: var(--evidence); }
     .analysis-status[data-kind="error"] { border-left-color: var(--danger); color: #f0b6b6; }
     .analysis-status[data-kind="ready"] { border-left-color: var(--ok); color: #b7c9c0; }

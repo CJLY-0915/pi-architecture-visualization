@@ -14,6 +14,7 @@
 ### 修复
 
 - **"另存为快照"按钮把保存行撑出面板**。按钮标签里塞进了 88 字符的 `architecture/snapshots/<64hex>.json`，三个按钮同一行放不下。现在三个写入按钮一律只用动词（`创建`/`另存为快照`/`覆盖写入`），完整路径本来就在上方的目标状态行和结果卡里；快照路径另加到该按钮的 `title` 供悬停查看。`.save-actions .button` 同时加上省略号约束，避免以后再有长标签把同行按钮挤出可见区域。
+- **同一条快照路径在目标状态行里仍然撑出横向滚动条**。按钮改短之后，那 88 字符无空格的 token 又原样出现在 `#save-state` 的说明文字里，而 `.save-state` 是面板里唯一漏了断词规则的文本容器——其余 8 个能承载路径的容器（`.metadata dd`、`.detail-id`、`.result-card li` 等）都已有 `overflow-wrap: anywhere`。补上之后状态行与文档都不再产生横向溢出；`.analysis-status` 同样补上，因为分析失败信息里也会带模型路径。实测：加规则前 `#save-state` 的 `scrollWidth` 619 > `clientWidth` 453、文档 653 > 518；加规则后两者各自相等。
 
 ### 变更
 
@@ -21,9 +22,10 @@
 
 ### 工程细节
 
-- `node --test tests/*.test.js` 350 → **351**：`tests/panel-interactions.test.js` 新增一条"关系图平移缩放是视图状态、不碰模型"，覆盖控件显隐、缩放上下限、指针拖拽与 slop、`buttons` 归零结束拖拽、滚轮无 `deltaY` 时不动视图、重绘不继承旧偏移；harness 的 `dispatch` 支持传入事件对象（原有调用不受影响）。
+- `node --test tests/*.test.js` 350 → **352**：`tests/panel-interactions.test.js` 新增两条——"关系图平移缩放是视图状态、不碰模型"（控件显隐、缩放上下限、指针拖拽与 slop、`buttons` 归零结束拖拽、滚轮无 `deltaY` 时不动视图、重绘不继承旧偏移）与"每条能承载路径的状态行都允许断词"（从渲染器 `<style>` 里读 `.save-state`/`.analysis-status` 的规则体，断言含 `overflow-wrap: anywhere`；harness 看不到布局，所以断在规则被写下的地方）。harness 的 `dispatch` 支持传入事件对象，原有调用不受影响。前一条测试做过变异检查：删掉 `.save-state` 的 `overflow-wrap` 后它立刻失败。
 - 缩放锚点以 `#diagram-surface` 自身的布局盒为基准，不是 `#diagram-stage` 的 border box：两者相差舞台的边框与内边距，直接用舞台 rect 计算会让指针下的点在每档缩放时漂移几像素。`getBoundingClientRect()` 返回的是已变换的盒，而 `transform-origin: 0 0` 时平移量正好等于它移动的距离，减掉当前偏移就得到布局位置——不需要读任何布局常量。
 - 关系图默认视图不变：`max-width: 100%` 保留，因此 1504px 宽的画布在 458px 舞台里仍然整体可见，缩放与平移是在这个适配视图之上叠加，而不是先把它裁掉。
+
 ## [1.5.0] - 2026-09-24
 
 把"采集即得模型"补成一条完整的使用路径：关系图看得见、变更集说得清、漂移查得出。**没有新增任何 agent 工具**——三个新能力全部只从面板进入，因为它们要么需要整个模型（图），要么是一次刻意的全工作区扫描（漂移）。

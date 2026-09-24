@@ -464,6 +464,24 @@ test('an existing target hides create and offers a snapshot and an explicit over
   assert.ok(containsText(elements.get('save-results'), 'snapshots/'));
   assert.equal(elements.get('model-source').textContent, '来自本次采集（未落盘）');
 });
+// A content-addressed snapshot path is a single 88-character token with no
+// spaces, so a status line that cannot break it grows a horizontal scrollbar
+// on the whole panel. Layout is not observable in the harness, so the rule is
+// asserted where it is written.
+function cssRuleBody(selector) {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
+  const style = /<style>([\s\S]*?)<\/style>/.exec(html);
+  assert.ok(style, 'renderer must contain one style block');
+  const rule = new RegExp(selector.replace(/[.]/g, '\\.') + '\\s*\\{([^}]*)\\}').exec(style[1]);
+  assert.ok(rule, `${selector} must declare a rule in the renderer style block`);
+  return rule[1];
+}
+
+test('every status line that can carry a path is allowed to break it', () => {
+  for (const selector of ['.save-state', '.analysis-status']) {
+    assert.match(cssRuleBody(selector), /overflow-wrap:\s*anywhere/, `${selector} must break a long path token instead of overflowing the panel`);
+  }
+});
 
 test('a refused save is reported and the model stays in memory', async () => {
   const collectedModel = JSON.parse(JSON.stringify(model));
