@@ -273,6 +273,54 @@ test('a collected model becomes the active one and is analysed without a path', 
   assert.equal(health.payload.path, undefined);
   assert.ok(health.payload.model);
 });
+test('collecting again withdraws a diagram drawn from the previous model', async () => {
+  const collectedModel = JSON.parse(JSON.stringify(model));
+  const harness = createPanelHarness((channel, payload) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'architecture.collect') return {
+      ok: true,
+      coverage: { complete: true, filesListed: 4, filesScanned: 4, filesSkipped: 0, adapters: [] },
+      counts: { nodes: collectedModel.nodes.length, edges: collectedModel.edges.length, evidence: collectedModel.evidence.length },
+      unresolved: [],
+      diagnostics: [],
+      model: collectedModel,
+    };
+    if (channel === 'architecture.diagram') {
+      const focused = typeof payload === 'object' && payload !== null && typeof payload.focus === 'string';
+      return {
+        ok: true,
+        svg: '<svg viewBox="0 0 656 390"><g class="dg-node" data-node-id="container.api"><rect/></g></svg>',
+        nodes: [{ id: 'container.api', name: 'API', type: 'container', status: 'confirmed', depth: 0 }],
+        edges: [],
+        focus: focused ? { id: 'container.api', name: 'API', neighbours: [] } : null,
+        truncated: false, omitted: { nodes: 0, edges: 0 },
+        layout: { layers: 2, width: 656, height: 390, maxNodes: 150, maxEdges: 300 },
+        limitations: ['确定性分层布局，不是运行态拓扑。'],
+      };
+    }
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements } = harness;
+
+  elements.get('load-form').dispatch('submit');
+  await settle();
+  elements.get('diagram-draw').dispatch('click');
+  await settle();
+  assert.equal(elements.get('diagram-status').dataset.kind, 'ready', 'the diagram must be drawn first');
+  assert.ok(elements.get('diagram-surface').innerHTML.includes('data-node-id'));
+
+  // The new model is not the one the diagram was drawn from, so leaving it on
+  // screen would put two different models side by side.
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+  assert.equal(elements.get('model-source').textContent, '来自本次采集（未落盘）');
+  assert.equal(elements.get('diagram-status').dataset.kind, 'idle', 'a new model must withdraw the previous diagram');
+  assert.equal(elements.get('diagram-surface').innerHTML, '', 'no diagram of a replaced model may stay on screen');
+  assert.equal(elements.get('diagram-clear').hidden, true, 'a withdrawn diagram has no focus to clear');
+  assert.equal(elements.get('diagram-zoom-in').hidden, true, 'a withdrawn diagram has no view to transform');
+});
 
 // The harness Element has no querySelectorAll, so walk the tree by class.
 function findAllByClass(element, className, out = []) {

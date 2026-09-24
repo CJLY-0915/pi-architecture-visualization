@@ -122,10 +122,18 @@
 ## J-bis. 1.5.1（2026-09-24）关系图平移缩放 / 保存按钮排版
 - **做了什么**：关系图新增一层与模型无关的平移缩放视图状态（`{scale, x, y}`，0.25–4，步进 1.25）。滚轮以指针为锚点，按钮以舞台中心为锚点；指针拖拽按增量累加位移；拖拽超过 3px 才记为平移，落在节点上的点击仍然是点击。三个写入按钮的标签改回纯动词，修掉"另存为快照"把 88 字符快照路径塞进标签、把保存行撑出面板的问题；同一条路径在 `#save-state` 的说明文字里仍然撑出横向滚动条，因为 `.save-state` 是面板里唯一漏了断词规则的文本容器，补上 `overflow-wrap: anywhere`（`.analysis-status` 一并补，分析失败信息也会带路径）。
 - **为什么不复用 `setPointerCapture`**：它要求 pointerId 当前有效，而一次"在舞台外松手"根本没有 `pointerup` 到达舞台。改用两个更稳的信号——位移按增量累加（指针移出再移回不会把画布甩出移动距离），以及 `buttons` 归零即结束拖拽。两者都不依赖可能不成立的宿主能力，也不吞异常。
-- **验证（本地）**：`node --test tests/*.test.js` 350 → **352**，全绿。新增两条面板交互测试：一条覆盖控件显隐、缩放上下限、拖拽与 slop、`buttons` 归零结束拖拽、滚轮缺 `deltaY` 时不动视图、重绘不继承旧偏移；另一条从渲染器 `<style>` 里读 `.save-state`/`.analysis-status` 的规则体，断言含 `overflow-wrap: anywhere`——harness 看不到布局，所以这条断在规则被写下的地方，并做过变异检查（删掉规则即红）。
+- **验证（本地）**：`node --test tests/*.test.js` 350 → **353**，全绿。新增三条面板交互测试：控件显隐/缩放上下限/拖拽与 slop/`buttons` 归零结束拖拽/滚轮缺 `deltaY` 时不动视图/重绘不继承旧偏移；从渲染器 `<style>` 读 `.save-state`/`.analysis-status` 规则体断言含 `overflow-wrap: anywhere`（harness 看不到布局，故断在规则被写下的地方，并做过变异检查）；以及"再次采集必须撤回上一份模型的关系图"（先绘制，再采集一个不同模型，断言 `diagram-status` 回 `idle`、`#diagram-surface` 清空）。
 - **验证（浏览器实测）**：用带桥接桩的预览页在真实 Chromium 里跑过。模型载入后绘图，`data-diagram-scale` 1 → 1.25 → 1.5625，SVG 渲染宽度 442 → 690.6px（画布 1504px、舞台 458px，默认视图仍整体可见）。滚轮以指针为锚：节点中心在两次缩放后仍停在 (97, 4019)；按钮以舞台中心为锚：连续五档缩放（进/进/退/退/退）后，舞台中心对应的内容点漂移 ≤0.3px。真实鼠标拖拽 (40, 30) 得到 `x=40, y=30`；拖拽落在节点上不改变焦点，无拖拽的点击正常聚焦；`pointermove` 带 `buttons: 0` 时拖拽结束且画布不动。三个写入按钮宽 97/84px，`save-actions` 的 `scrollWidth` 与 `clientWidth` 相等（456=456），不再溢出。目标状态行用用户报的那条 88 字符快照路径复测：加 `overflow-wrap` 前 `#save-state` 的 `scrollWidth` 619 > `clientWidth` 453、`documentElement` 653 > 518（横向滚动条）；加之后 453=453、518=518，滚动条消失。**预览页写在 gitignore 的 `Temp/` 下，验证后已删除。**
 - **尚未真机确认**：与 1.5.0 相同，关系图/变更集/漂移三个通道仍未在真实 PI-Desktop 面板点过（A16 仍为 ⬜）；本次的平移缩放同样只在本机浏览器验证过，未在宿主面板里拖过。
 - **CI 已回看**：1.5.1 的 run [35953559639](https://github.com/CJLY-0915/pi-architecture-visualization/actions/runs/35953559639)（commit `8b87675`，2026-09-24T03:56:56Z 起）与随后文档修正的 run [35953927755](https://github.com/CJLY-0915/pi-architecture-visualization/actions/runs/35953927755)（commit `1aa5a1c`，2026-09-24T04:02:19Z 起）均三平台 `conclusion=success`：各 3 个 job（ubuntu/windows/macos-latest）、每 job 7 个 step 全部成功。读取方式为本机请求 GitHub Actions API，属本地日志而非用户证言。
+
+## J-ter. 已知现象：开发源插件把模型存进自身目录会触发热重载
+
+- **事实**：宿主对开发源插件 `fs.watch` 整个插件目录（`out/main/index.js:92743-92820`），任何文件改动经 300ms 防抖后 `reloadDevPlugin`，日志表现为 `plugin.unload` → `plugin.skills.register` → `plugin.load.success` → `plugin.reload.success`，打开的面板随之重载。忽略目录只有 `node_modules`/`.git`/`dist`/`target`（`:92735`），**`architecture/` 不在其中**。
+- **观察到的证据**：`architecture/model.json` mtime 2026-09-24T03:09:15Z，同刻日志有一条 `development.plugin.reloaded`（03:09:15.712Z）。该文件正是面板保存区块写出的（107053 字节）。本会话共 188 次 `development.plugin.reloaded`，绝大多数由编辑源码与临时预览页触发。
+- **采集不写任何字节**：全仓库唯一的写入是 `src/host/save-model.js:170`，只能由 `architecture.save` 通道在用户显式选择 `create`/`snapshot`/`overwrite` 时到达。`architecture.collect` 只读。
+- **正式包不会这样**：`watchDevPlugin`（`:97955`）只对开发源插件调用，`.piplug` 安装不注册监视器，因此没有热重载。保存后面板仍会按 `loadModel(save.path)` 从磁盘重读——那是刻意行为，不是缺陷。
+- **规避**：想在没有热重载的情况下试保存流程，把工作区换成插件目录以外的项目；或者接受每次保存后面板重载一次。
 ## J. 已知不一致：invalid model 错误码有三种拼写
 
 - **事实**：同一个"模型未通过结构校验"的条件，在仓库里有三种错误码拼写——`src/host/read-model.js` 与 `src/host/save-model.js` 用大写 `'INVALID_MODEL'`；`src/core/export-preview.js`（以及 1.5.0 新增的 `diagram.js`、`drift.js`）用小写 `'invalid_model'`；`src/core/impact.js` 则把该条件报成 `'unsupported_input'`（`ERROR_CODE.INVALID_MODEL = CODES.UNSUPPORTED_INPUT`）。`error-codes.js` 里**没有** `INVALID_MODEL` 键，三种都是字面量。

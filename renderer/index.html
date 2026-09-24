@@ -392,6 +392,8 @@
         const problem = diagnose(result.model);
         if (problem) { setCollectStatus("error", `采集结果未通过面板结构检查：${problem} 不载入阅读器。`); return; }
         state.model = result.model; state.modelSource = "collected"; state.selectedId = null; ui.modelSource.textContent = "来自本次采集（未落盘）";
+        // A diagram drawn from the previous model describes a model that is no longer the active one, so it is withdrawn rather than left sitting next to numbers it does not match. Reading a file already does this; collecting is the same kind of model swap.
+        resetDiagramAndDrift();
         displayModel();
         setCollectStatus("ready", "采集完成（只读）。摘要与盲区在上方；完整模型已载入下方阅读器，可直接查询与导出。");
         // A collected model lives only in memory, so the save block appears
