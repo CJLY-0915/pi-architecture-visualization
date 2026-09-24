@@ -175,6 +175,21 @@
     .analysis-status[data-kind="error"] { border-left-color: var(--danger); color: #f0b6b6; }
     .analysis-status[data-kind="ready"] { border-left-color: var(--ok); color: #b7c9c0; }
     .analysis-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .diagram, .drift { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #0d1621; }
+    .diagram > header, .drift > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+    .diagram h2, .drift h2 { margin: 0; font-size: 15px; }
+    .diagram > header p, .drift > header p { margin: 0; color: var(--faint); font-size: 12px; }
+    .diagram > header code, .drift > header code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: var(--evidence); }
+    .diagram-controls, .drift-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    .diagram-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 1fr); gap: 12px; margin-top: 12px; }
+    .diagram-stage { min-height: 260px; max-height: 520px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #0b111b; }
+    .diagram-stage svg { display: block; max-width: 100%; height: auto; }
+    .diagram-index { display: grid; align-content: start; gap: 4px; max-height: 520px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper-inset); }
+    .diagram-node { padding: 6px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; text-align: left; cursor: pointer; }
+    .diagram-node:hover { border-color: var(--line-strong); color: var(--ink); }
+    .diagram-node[aria-pressed="true"] { border-color: var(--evidence); color: var(--ink); background: var(--paper-raised); }
+    .diagram-results, .drift-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    @media (max-width: 900px) { .diagram-body { grid-template-columns: minmax(0, 1fr); } .diagram-results, .drift-results { grid-template-columns: minmax(0, 1fr); } }
     .result-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #0b131e; }
     .result-card h3 { margin: 0 0 8px; color: #b8cce0; font-size: 12px; }
     .result-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
@@ -199,23 +214,17 @@
       <div>
         <p class="eyebrow">architecture records / read-only</p>
         <h1>架构档案台</h1>
-        <p class="lede">在当前工作区中只读打开模型，按节点、关系与证据线索进行审阅。</p>
+        <p class="lede">点一次“采集并生成模型”，就在当前工作区得到一份可查询的架构模型；也可以按路径读取已有模型。两者都只读。</p>
       </div>
       <span class="read-only">只读分析 · 写入需你确认</span>
     </header>
 
-    <form id="load-form" class="workspace-bar" novalidate>
-      <label class="sr-only" for="model-path">模型相对路径</label>
-      <input id="model-path" class="path-input" name="modelPath" value="architecture/model.json" autocomplete="off" spellcheck="false" aria-describedby="path-help" />
-      <button class="button primary" id="load-button" type="submit">读取模型</button>
-    </form>
-    <p id="path-help" class="workspace-note">路径相对于已打开的工作区。读取始终只读；只有你在“保存这份模型”里点了写入按钮，才会把当次采集的模型写到 architecture/ 下你指定的路径。</p>
     <section id="collect" aria-labelledby="collect-heading">
       <header class="collect-header"><div><h2 id="collect-heading">采集并生成模型</h2><p>扫描当前工作区并当场生成一份架构模型，只读、不写入任何文件。生成后下方阅读器立即可用：浏览节点、查图、跑影响、看健康、导出 JSON。模型先只在内存；需要它长期可用时，用下面的“保存这份模型”写进工作区。</p></div><span class="read-only">只读扫描</span></header>
       <form id="collect-form" class="collect-form" novalidate>
         <input id="collect-roots" class="field" placeholder="范围根目录（留空 = 整个工作区）" aria-label="采集范围根目录" />
         <input id="collect-max" class="field" type="number" min="1" placeholder="最多文件数（默认 500）" aria-label="采集最多文件数" />
-        <button class="button secondary" id="collect-submit" type="submit">采集并生成模型</button>
+        <button class="button primary" id="collect-submit" type="submit">采集并生成模型</button>
       </form>
       <div id="collect-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未采集。点“采集并生成模型”即可，无需先在会话里让 agent 建模。</div>
       <div id="collect-results" class="analysis-results" aria-live="polite"></div>
@@ -233,6 +242,16 @@
         </div>
         <div id="save-results" class="analysis-results" aria-live="polite"></div>
       </div>
+    </section>
+
+    <section id="load" aria-labelledby="load-heading">
+      <header class="section-heading"><div><h2 id="load-heading">读取已有模型</h2><p>高级入口：工作区里已经有一份模型文件时，按路径直接读取。不采集、不写入。</p></div><span class="read-only">只读</span></header>
+      <form id="load-form" class="workspace-bar" novalidate>
+        <label class="sr-only" for="model-path">模型相对路径</label>
+        <input id="model-path" class="path-input" name="modelPath" value="architecture/model.json" autocomplete="off" spellcheck="false" aria-describedby="path-help" />
+        <button class="button secondary" id="load-button" type="submit">读取模型</button>
+      </form>
+      <p id="path-help" class="workspace-note">路径相对于已打开的工作区。读取始终只读；只有你在“保存这份模型”里点了写入按钮，才会把当次采集的模型写到 architecture/ 下你指定的路径。</p>
     </section>
 
     <section id="status" class="status" data-kind="idle" aria-live="polite" aria-atomic="true">
@@ -274,6 +293,27 @@
           <div id="detail-body" class="detail-body" aria-live="polite"><div class="placeholder">尚未选择节点<br />详情会列出模型中已记录的证据与关联边。</div></div>
         </aside>
       </section>
+      <section id="diagram" class="diagram" aria-labelledby="diagram-heading">
+        <header><div><h2 id="diagram-heading">关系图</h2><p>按 <code>parentId</code> 链分层的确定性布局。点图中节点或右侧索引，可聚焦它的直接邻居。这是模型结构图，不是运行态拓扑，也没有读取任何源文件。</p></div><span class="read-only">内存渲染</span></header>
+        <div class="diagram-controls">
+          <button id="diagram-draw" class="button secondary" type="button">绘制关系图</button>
+          <button id="diagram-clear" class="button secondary" type="button" hidden>清除焦点</button>
+        </div>
+        <p id="diagram-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未绘制。点“绘制关系图”即可，不需要额外参数。</p>
+        <div class="diagram-body">
+          <div id="diagram-stage" class="diagram-stage" aria-live="polite"></div>
+          <div id="diagram-index" class="diagram-index" role="list" aria-label="图中节点"></div>
+        </div>
+        <div id="diagram-results" class="analysis-results" aria-live="polite"></div>
+      </section>
+      <section id="drift" class="drift" aria-labelledby="drift-heading">
+        <header><div><h2 id="drift-heading">架构漂移</h2><p>把当前模型和一次全新的只读工作区扫描对比，只看文件路径：模型引用的文件是否还在、是否还被采集器建模、有没有新增却未被模型引用的文件。不读 Git，因此“文件还在且仍被引用”并不代表内容没变。</p></div><span class="read-only">只读扫描</span></header>
+        <div class="drift-controls">
+          <button id="drift-run" class="button secondary" type="button">检查漂移</button>
+        </div>
+        <p id="drift-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未检查。漂移会重新扫描一次工作区，只读、不写入。</p>
+        <div id="drift-results" class="analysis-results" aria-live="polite"></div>
+      </section>
       <section id="unknowns" class="unknowns" hidden aria-labelledby="unknowns-heading">
         <header><div><h2 id="unknowns-heading">待厘清项</h2><p>模型作者标记为未确定的范围；并非本界面作出的判断。</p></div><span id="unknown-count" class="result-count"></span></header>
         <ul id="unknown-list" class="unknown-list"></ul>
@@ -284,6 +324,7 @@
           <form id="query-form" class="analysis-form"><h3>图查询</h3><p>路径与邻居模式使用起点/目标 ID；路径模式另需终点 ID。</p><select id="query-mode" class="field" aria-label="查询模式"><option value="filter">筛选全部节点</option><option value="neighbours">相邻节点</option><option value="paths">节点路径</option><option value="cycles">完整环路</option></select><input id="query-targets" class="field" placeholder="起点或目标 ID（逗号分隔）" aria-label="查询起点或目标" /><input id="query-to" class="field" placeholder="终点 ID（仅路径）" aria-label="查询终点" /><button class="button secondary" type="submit">执行图查询</button></form>
           <form id="export-form" class="analysis-form"><h3>内存导出预览</h3><p>不下载、不保存。PNG 在零依赖边界中仅报告不支持原因。C4 层级由 <code>parentId</code> 链切出，与浮动/停靠形态无关。</p><select id="export-format" class="field" aria-label="导出预览格式"><option value="mermaid">Mermaid</option><option value="dot">DOT</option><option value="structurizr">Structurizr DSL（拍平）</option><option value="c4">C4 层级（Structurizr DSL）</option><option value="drawio">Draw.io XML</option><option value="markdown">Markdown</option><option value="json">JSON</option><option value="svg">SVG</option><option value="png">PNG（受限）</option><option value="html">离线 HTML</option></select><input id="export-focus" class="field" placeholder="C4 焦点节点 ID（留空取首个 system）" aria-label="C4 焦点节点 ID" /><select id="export-level" class="field" aria-label="C4 层级"><option value="1">L1 系统上下文</option><option value="2">L2 容器</option><option value="3">L3 组件</option></select><button class="button secondary" type="submit">生成内存预览</button></form>
           <form id="impact-form" class="analysis-form"><h3>影响分析</h3><p>只接受明确稳定节点 ID 或已声明证据路径；默认下游，深度最多 8。</p><input id="impact-targets" class="field" placeholder="节点 ID 或证据路径（逗号分隔）" aria-label="影响分析目标" required /><select id="impact-direction" class="field" aria-label="影响方向"><option value="downstream">下游影响</option><option value="upstream">上游影响</option><option value="both">双向影响</option></select><button class="button secondary" type="submit">执行影响分析</button></form>
+          <form id="changeset-form" class="analysis-form"><h3>变更集影响</h3><p>给一组工作区相对文件路径（逗号或空格分隔），按已声明证据路径解析成节点后再跑影响分析。没匹配上的路径会被逐个列出——空结果不等于没有影响。</p><input id="changeset-paths" class="field" placeholder="src/a.js src/b.ts" aria-label="变更集文件路径" required /><select id="changeset-direction" class="field" aria-label="影响方向"><option value="downstream">下游影响</option><option value="upstream">上游影响</option><option value="both">双向影响</option></select><button class="button secondary" type="submit">执行变更集影响</button></form>
           <form id="compare-form" class="analysis-form"><h3>快照比较</h3><p>比较两个明确工作区相对模型路径；不推断 Git、分支或证据新鲜度。</p><input id="compare-before" class="field" placeholder="较早模型路径" aria-label="较早模型路径" required /><input id="compare-after" class="field" placeholder="较新模型路径" aria-label="较新模型路径" required /><button class="button secondary" type="submit">比较快照</button></form>
           <form id="health-form" class="analysis-form"><h3>架构健康</h3><p>仅评估模型自身声明的合同、覆盖、未知项、证据与置信度；源码、证据/产物新鲜度保持未知。</p><button class="button secondary" type="submit">运行健康检查</button></form>
         </div>
@@ -299,7 +340,7 @@
       "use strict";
       const MAX_MODEL_BYTES = 2 * 1024 * 1024;
       const DEFAULT_PATH = "architecture/model.json";
-      const state = { model: null, path: DEFAULT_PATH, modelSource: null, selectedId: null };
+      const state = { model: null, path: DEFAULT_PATH, modelSource: null, selectedId: null, diagramFocus: null };
       const $ = (id) => document.getElementById(id);
       const ui = {
         form: $("load-form"), path: $("model-path"), load: $("load-button"),
@@ -310,7 +351,10 @@
         detail: $("detail-body"), detailSubtitle: $("detail-subtitle"), unknowns: $("unknowns"), unknownCount: $("unknown-count"), unknownList: $("unknown-list"),
       queryForm: $("query-form"), queryMode: $("query-mode"), queryTargets: $("query-targets"), queryTo: $("query-to"), impactForm: $("impact-form"), impactTargets: $("impact-targets"), impactDirection: $("impact-direction"), compareForm: $("compare-form"), compareBefore: $("compare-before"), compareAfter: $("compare-after"), exportForm: $("export-form"), exportFormat: $("export-format"), exportFocus: $("export-focus"), exportLevel: $("export-level"), healthForm: $("health-form"), analysisStatus: $("analysis-status"), analysisResults: $("analysis-results"),
         collectForm: $("collect-form"), collectRoots: $("collect-roots"), collectMax: $("collect-max"), collectSubmit: $("collect-submit"), collectStatus: $("collect-status"), collectResults: $("collect-results"),
-        save: $("save"), savePath: $("save-path"), saveCheck: $("save-check"), saveState: $("save-state"), saveCreate: $("save-create"), saveSnapshot: $("save-snapshot"), saveOverwrite: $("save-overwrite"), saveResults: $("save-results")
+        save: $("save"), savePath: $("save-path"), saveCheck: $("save-check"), saveState: $("save-state"), saveCreate: $("save-create"), saveSnapshot: $("save-snapshot"), saveOverwrite: $("save-overwrite"), saveResults: $("save-results"),
+        diagramDraw: $("diagram-draw"), diagramClear: $("diagram-clear"), diagramStatus: $("diagram-status"), diagramStage: $("diagram-stage"), diagramIndex: $("diagram-index"), diagramResults: $("diagram-results"),
+        changesetForm: $("changeset-form"), changesetPaths: $("changeset-paths"), changesetDirection: $("changeset-direction"),
+        driftRun: $("drift-run"), driftStatus: $("drift-status"), driftResults: $("drift-results")
       };
       function setCollectStatus(kind, message) { ui.collectStatus.dataset.kind = kind; ui.collectStatus.textContent = message; }
       function renderCollect(result) {
@@ -425,6 +469,108 @@
       ui.saveCreate.addEventListener("click", () => { void runSave("create"); });
       ui.saveSnapshot.addEventListener("click", () => { void runSave("snapshot"); });
       ui.saveOverwrite.addEventListener("click", () => { void runSave("overwrite"); });
+      const DIAGRAM_CHANNEL = "architecture.diagram";
+      const DRIFT_CHANNEL = "architecture.drift";
+      // The diagram is a view of the model, never a second source of truth, so
+      // it is rebuilt from a channel call and never patched in place: focus is
+      // part of the request, which keeps one renderer for every state.
+      function setDiagramStatus(kind, message) { ui.diagramStatus.dataset.kind = kind; ui.diagramStatus.textContent = message; }
+      function setDriftStatus(kind, message) { ui.driftStatus.dataset.kind = kind; ui.driftStatus.textContent = message; }
+      function resetDiagramAndDrift() {
+        state.diagramFocus = null;
+        ui.diagramStage.innerHTML = ""; ui.diagramIndex.replaceChildren(); ui.diagramResults.replaceChildren(); ui.diagramClear.hidden = true;
+        setDiagramStatus("idle", "尚未绘制。点“绘制关系图”即可，不需要额外参数。");
+        ui.driftResults.replaceChildren();
+        setDriftStatus("idle", "尚未检查。漂移会重新扫描一次工作区，只读、不写入。");
+      }
+      function renderDiagram(result) {
+        ui.diagramStage.innerHTML = result.svg;
+        ui.diagramIndex.replaceChildren();
+        array(result.nodes).forEach((node) => {
+          const button = document.createElement("button");
+          button.type = "button"; button.className = "diagram-node"; button.textContent = `${node.name} · ${node.id}`;
+          button.setAttribute("aria-pressed", String(state.diagramFocus === node.id));
+          button.addEventListener("click", () => { void drawDiagram(node.id); });
+          ui.diagramIndex.append(button);
+        });
+        attachDiagramClicks();
+        const entries = [`布局：${result.layout.layers} 层 · ${result.nodes.length} 节点 · ${result.edges.length} 关系`, `画布：${result.layout.width} × ${result.layout.height}`];
+        if (result.focus) entries.push(`焦点：${result.focus.name}（${result.focus.id}），直接相邻 ${result.focus.neighbours.length} 个节点`);
+        if (result.truncated) entries.push(`已截断：省略 ${result.omitted.nodes} 个节点、${result.omitted.edges} 条关系；这不是一张完整的图。`);
+        ui.diagramResults.replaceChildren(resultCard("图形范围", entries, result.truncated ? "warning" : ""), resultCard("限制", array(result.limitations), "warning"));
+      }
+      // Click targets only exist once the host has parsed the injected markup.
+      // A browser gives us querySelectorAll; a test double does not, and
+      // guessing either way would be a lie about what the user can click.
+      function attachDiagramClicks() {
+        if (!ui.diagramStage.querySelectorAll) return;
+        ui.diagramStage.querySelectorAll("[data-node-id]").forEach((element) => {
+          const id = element.getAttribute("data-node-id");
+          element.addEventListener("click", () => { void drawDiagram(id); });
+        });
+      }
+      function renderDiagramFailure(result) {
+        ui.diagramStage.innerHTML = ""; ui.diagramIndex.replaceChildren(); ui.diagramResults.replaceChildren();
+        const error = result && result.error ? `${result.error.code || "diagram_failed"}：${result.error.message || "没有生成关系图。"}` : "绘图调用失败，未产生完整结果。";
+        ui.diagramResults.append(resultCard("未完成的绘图", [error], "error"));
+        setDiagramStatus("error", error);
+      }
+      async function drawDiagram(focus) {
+        if (!state.model) { setDiagramStatus("error", "请先采集或读取一个模型。"); return; }
+        const request = { maxNodes: 150, maxEdges: 300 };
+        if (focus) request.focus = focus;
+        ui.diagramDraw.disabled = true;
+        setDiagramStatus("loading", "正在绘制关系图；不会写入…");
+        try {
+          const result = await bridgeInvoke(DIAGRAM_CHANNEL, modelRequest(request));
+          if (!result || result.ok !== true) { renderDiagramFailure(result); return; }
+          state.diagramFocus = result.focus ? result.focus.id : null;
+          ui.diagramClear.hidden = !state.diagramFocus;
+          renderDiagram(result);
+          setDiagramStatus("ready", state.diagramFocus ? `已聚焦 ${state.diagramFocus}；点其他节点可切换焦点。` : "关系图已绘制。点图中节点或右侧索引，可聚焦它的直接邻居。");
+        } catch (error) {
+          renderDiagramFailure({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } });
+        } finally { ui.diagramDraw.disabled = false; }
+      }
+      ui.diagramDraw.addEventListener("click", () => { void drawDiagram(state.diagramFocus); });
+      ui.diagramClear.addEventListener("click", () => { state.diagramFocus = null; ui.diagramClear.hidden = true; if (state.model) void drawDiagram(null); });
+      // Drift is decided on file paths alone. It says nothing about content, so
+      // the panel repeats that limit next to every verdict instead of letting a
+      // green result be read as "the model is still true".
+      function renderDrift(result) {
+        ui.driftResults.replaceChildren();
+        if (!result || result.ok !== true) {
+          const error = result && result.error ? `${result.error.code || "drift_failed"}：${result.error.message || "漂移检查没有完成。"}` : "漂移检查调用失败，未作任何比较。";
+          ui.driftResults.append(resultCard("未完成的漂移检查", [error], "error"));
+          setDriftStatus("error", error);
+          return;
+        }
+        const findings = result.findings || {};
+        const verdictText = { aligned: "模型与当前工作区一致", drifted: "模型已偏离当前工作区", incomplete: "无法判定：本次扫描不完整" };
+        const label = verdictText[result.verdict] || result.verdict;
+        const tone = result.verdict === "drifted" ? "error" : result.verdict === "incomplete" ? "warning" : "";
+        const missing = array(findings.missingEvidence);
+        const dropped = array(findings.noLongerModelled);
+        const unknown = array(findings.existenceUnknown);
+        ui.driftResults.append(resultCard(`结论：${label}`, [result.counts || {}, { filesEnumerated: result.scan && result.scan.filesEnumerated, filesModelled: result.scan && result.scan.filesModelled, complete: result.scan && result.scan.coverage && result.scan.coverage.complete }], tone));
+        ui.driftResults.append(resultCard("模型引用但扫描未找到", missing.map((item) => `${item.path} · 证据 ${item.evidenceId} · 被 ${item.nodeIds.length} 个节点 / ${item.edgeIds.length} 条边引用`), missing.length ? "error" : ""));
+        ui.driftResults.append(resultCard("文件仍在但采集器已不建模", dropped.map((item) => `${item.path} · 证据 ${item.evidenceId}`), dropped.length ? "warning" : ""));
+        ui.driftResults.append(resultCard("存在却未被模型引用", array(findings.unmodelledPaths).map((item) => item.path)));
+        ui.driftResults.append(resultCard("因扫描不完整而无法判定", unknown.map((item) => `${item.path} · ${item.reason}`), unknown.length ? "warning" : ""));
+        ui.driftResults.append(resultCard("边界", array(result.limits), "warning"));
+        setDriftStatus("ready", `漂移检查完成（只读）：${label}。不读 Git，也不读文件内容。`);
+      }
+      async function runDrift() {
+        if (!state.model) { setDriftStatus("error", "请先采集或读取一个模型。"); return; }
+        ui.driftRun.disabled = true;
+        setDriftStatus("loading", "正在重新扫描工作区并比较；不会写入…");
+        try {
+          renderDrift(await bridgeInvoke(DRIFT_CHANNEL, modelRequest({ maxFindings: 100 })));
+        } catch (error) {
+          renderDrift({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } });
+        } finally { ui.driftRun.disabled = false; }
+      }
+      ui.driftRun.addEventListener("click", () => { void runDrift(); });
       async function runCollect(event) {
         event.preventDefault();
         const request = { includeModel: true };
@@ -609,6 +755,9 @@
       }
       function array(value) { return Array.isArray(value) ? value : []; }
       function splitValues(value) { return String(value || "").split(",").map((item) => item.trim()).filter(Boolean); }
+      // Pasted path lists arrive comma-, space- or newline-separated; accepting
+      // all three keeps a copy-paste from silently dropping entries.
+      function splitPaths(value) { return String(value || "").split(/[\s,]+/).map((item) => item.trim()).filter(Boolean); }
       function describe(value) { if (typeof value === "string") return value; try { return JSON.stringify(value); } catch { return "不可显示的结果项"; } }
       function resultCard(title, entries, kind = "") { const card = document.createElement("section"); card.className = `result-card ${kind}`; const heading = document.createElement("h3"); heading.textContent = title; card.append(heading); if (!entries.length) { const note = document.createElement("p"); note.textContent = "无记录。"; card.append(note); return card; } const list = document.createElement("ul"); entries.slice(0, 24).forEach((entry) => { const item = document.createElement("li"); item.textContent = describe(entry); list.append(item); }); if (entries.length > 24) { const item = document.createElement("li"); item.textContent = `仅显示前 24 / ${entries.length} 项；结果未被视为完整。`; list.append(item); } card.append(list); return card; }
       function renderAnalysis(kind, result) {
@@ -622,6 +771,7 @@
         if (kind === "compare") { const summary = result.summary || {}; ui.analysisResults.append(resultCard(result.identical ? "比较：语义相同" : "比较：存在差异", [{ revisionChanged: result.revisionChanged, ...summary }])); ui.analysisResults.append(resultCard("证据新鲜度", array(result.evidence && result.evidence.stale).map((item) => `stale：${item.id} / ${item.reason}`).concat(array(result.evidence && result.evidence.freshnessUnknown).map((item) => `未知：${item.id} / ${item.reason}`)), "warning")); ui.analysisResults.append(resultCard("候选与悬空引用", array(result.renameCandidates).concat(array(result.danglingEvidenceRefs)))); }
         if (kind === "export") { ui.analysisResults.append(previewCard(result)); ui.analysisResults.append(resultCard("元数据与图例", [result.metadata, ...array(result.legend)])); ui.analysisResults.append(resultCard("限制", array(result.limitations), "warning")); }
         if (kind === "health") { const findingCount = result.counts && Number.isInteger(result.counts.findings) ? result.counts.findings : array(result.findings).length; const title = result.ok ? (findingCount ? "模型合同通过；存在健康发现" : "模型合同通过；未记录健康发现") : "模型合同未通过"; const tone = result.ok ? (findingCount ? "warning" : "") : "error"; ui.analysisResults.append(resultCard(title, [result.counts || {}], tone)); ui.analysisResults.append(resultCard("健康发现", array(result.findings).map((item) => `${item.severity}/${item.category} · ${item.code} · ${item.kind || "model"}${item.id ? `:${item.id}` : ""}${item.field ? `/${item.field}` : ""} — ${item.message}`), tone)); ui.analysisResults.append(resultCard("未验证状态", [result.unverified || {}, ...array(result.limitations)], "warning")); }
+        if (kind === "changeset") { const set = result.changeSet || {}; const complete = set.complete === true; ui.analysisResults.append(resultCard("变更集汇总", [`提交 ${set.requested} 个路径`, `解析成功 ${set.resolved} 个`, `未解析 ${set.unresolved} 个`, `结论完整：${complete ? "是" : "否"}`], complete ? "" : "warning")); ui.analysisResults.append(resultCard("匹配目标", array(result.targets))); ui.analysisResults.append(resultCard("受影响节点", array(result.impacted).map((item) => `${item.nodeId} · 深度 ${item.depth} · ${item.via && item.via.type} · ${item.status}/${item.confidence}`))); ui.analysisResults.append(resultCard("统计", [result.stats || {}])); }
         setAnalysisStatus("ready", "只读分析完成。所有范围限制、停止原因与未验证状态均已列出。");
       }
       async function runAnalysis(channel, payload, kind, label) { if (!state.model) { setAnalysisStatus("error", "请先成功读取或采集一个模型，再执行分析。"); return; } setAnalysisBusy(true); setAnalysisStatus("loading", `正在执行${label}；不会写入工作区…`); try { renderAnalysis(kind, await bridgeInvoke(channel, modelRequest(payload))); } catch (error) { renderAnalysis(kind, { ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } }); } finally { setAnalysisBusy(false); } }
@@ -634,9 +784,18 @@
       ui.compareForm.addEventListener("submit", (event) => { event.preventDefault(); const beforePath = ui.compareBefore.value.trim(); const afterPath = ui.compareAfter.value.trim(); if (!beforePath || !afterPath) { setAnalysisStatus("error", "快照比较需要两个明确的工作区相对模型路径。不会推断 Git 或分支。"); return; } runAnalysis("architecture.compare", { beforePath, afterPath }, "compare", "快照比较"); });
       ui.exportForm.addEventListener("submit", (event) => { event.preventDefault(); const request = { format: ui.exportFormat.value }; if (ui.exportFormat.value === "c4") { const focus = ui.exportFocus.value.trim(); if (focus) request.focus = focus; request.level = Number(ui.exportLevel.value); } runAnalysis("architecture.exportPreview", request, "export", "内存导出预览"); });
       ui.healthForm.addEventListener("submit", (event) => { event.preventDefault(); runAnalysis("architecture.health", {}, "health", "架构健康检查"); });
+      // A change set is a batch of paths, so the summary has to say how many of
+      // them resolved: an empty impact list is only meaningful when every path
+      // matched, and silently dropping the rest is how "no impact" gets faked.
+      ui.changesetForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const paths = splitPaths(ui.changesetPaths.value);
+        if (!paths.length) { setAnalysisStatus("error", "变更集影响需要至少一个工作区相对文件路径。不会推断 Git、分支或改动。"); return; }
+        runAnalysis("architecture.impact", { targets: paths, direction: ui.changesetDirection.value, maxDepth: 8, maxNodes: 150 }, "changeset", "变更集影响");
+      });
       async function loadModel(path) {
         const trimmed = String(path || "").trim();
-        state.model = null; state.modelSource = null; state.selectedId = null; ui.reader.hidden = true;
+        state.model = null; state.modelSource = null; state.selectedId = null; ui.reader.hidden = true; resetDiagramAndDrift();
         if (!trimmed) { setStatus("error", "请输入模型相对路径后再读取。"); ui.path.focus(); return; }
         ui.path.value = trimmed; setBusy(true); setStatus("loading", `正在从工作区读取 ${trimmed}…`);
         try {

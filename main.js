@@ -6,6 +6,8 @@ const { exportPreview } = require('./src/core/export-preview.js');
 const { collectModel } = require('./src/collectors/index.js');
 const { createHostSource } = require('./src/host/fs-source.js');
 const { planModelSave, applyModelSave, SAVE_DECISIONS, DEFAULT_MODEL_PATH } = require('./src/host/save-model.js');
+const { buildDiagram } = require('./src/core/diagram.js');
+const { runDriftCheck } = require('./src/host/drift-check.js');
 
 const VALIDATE_TOOL = 'architecture_validate';
 const COLLECT_TOOL = 'architecture_collect';
@@ -33,6 +35,8 @@ function readHost() {
   return { fs: { stat: (path) => pi.fs.stat(path), readText: (path) => pi.fs.readText(path) } };
 }
 const SAVE_CHANNEL = 'architecture.save';
+const DIAGRAM_CHANNEL = 'architecture.diagram';
+const DRIFT_CHANNEL = 'architecture.drift';
 
 // Writing needs one more permission than reading, so the call stays visible at
 // the entry point rather than hiding inside the shared module.
@@ -46,9 +50,11 @@ function writeHost() {
   };
 }
 
-// The panel addresses one channel more than the analysis tools do: saving is
-// not an agent tool, because no tool schema carries a whole model.
-const PANEL_CHANNELS = Object.freeze([...Object.keys(PANEL_ANALYSIS_CHANNELS), SAVE_CHANNEL].sort());
+// The panel addresses three channels the agent tools do not: saving writes a
+// model, drawing renders one, and drift scans the workspace. None of them has
+// an agent entry point, because no tool schema carries a whole model and a
+// drift scan is a deliberate whole-workspace read rather than a query.
+const PANEL_CHANNELS = Object.freeze([...Object.keys(PANEL_ANALYSIS_CHANNELS), SAVE_CHANNEL, DIAGRAM_CHANNEL, DRIFT_CHANNEL].sort());
 
 // This plugin budgets its own collection responses, independently of host import limits.
 const MAX_SUMMARY_BYTES = 240 * 1024;
@@ -280,8 +286,45 @@ async function saveFromPanel(payload) {
   return applyModelSave(writeHost(), { model: request.model, path, decision: request.decision });
 }
 
+// One resolution rule for every panel operation that needs a model: an
+// in-memory model replaces the path, and a path is read through the same
+// bounded reader the agent tools use. Keeping it in one place stops the
+// channels from drifting apart on what "the current model" means.
+async function resolvePanelModel(request) {
+  if (request.model !== undefined) return resolveInlineModel(request.model);
+  if (typeof request.path !== 'string' || request.path.length === 0) {
+    return { ok: false, error: { code: 'invalid_option', message: 'Provide a model or a bounded workspace-relative model path.' } };
+  }
+  return readModel(readHost(), request.path);
+}
+
+// The diagram is a view of a model, never a second source of truth, so it takes
+// the same inline-or-path resolution: a model collected in this session can be
+// drawn before anyone saves it.
+async function diagramFromPanel(payload) {
+  const request = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
+  if (!request || Object.keys(request).some((key) => key !== 'model' && key !== 'path' && key !== 'focus' && key !== 'maxNodes' && key !== 'maxEdges')) {
+    return { ok: false, error: { code: 'invalid_option', message: 'The diagram accepts a model or a bounded model path, an optional focus node id and optional size budgets.' } };
+  }
+  const boundedText = (value) => value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= 1024);
+  if (!boundedText(request.path) || !boundedText(request.focus)) {
+    return { ok: false, error: { code: 'invalid_option', message: 'The model path and the focus node id must be bounded strings.' } };
+  }
+  for (const key of ['maxNodes', 'maxEdges']) {
+    const value = request[key];
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 1 || value > 2000)) {
+      return { ok: false, error: { code: 'invalid_option', message: `${key} must be an integer between 1 and 2000.` } };
+    }
+  }
+  const resolved = await resolvePanelModel(request);
+  if (!resolved.ok) return resolved;
+  return boundResponse(buildDiagram(resolved.model, { focus: request.focus, maxNodes: request.maxNodes, maxEdges: request.maxEdges }));
+}
+
 async function onPanelInvoke(channel, payload) {
   if (channel === SAVE_CHANNEL) return saveFromPanel(payload);
+  if (channel === DIAGRAM_CHANNEL) return diagramFromPanel(payload);
+  if (channel === DRIFT_CHANNEL) return runDriftCheck(pi, payload);
   const name = PANEL_ANALYSIS_CHANNELS[channel];
   if (!name) {
     return { ok: false, error: { code: 'unsupported_input', message: 'This panel operation is not available.' } };
@@ -313,17 +356,9 @@ async function onPanelInvoke(channel, payload) {
       || Object.keys(request).some((key) => key !== 'path' && key !== 'format' && key !== 'focus' && key !== 'level')) {
       return { ok: false, error: { code: 'invalid_option', message: 'Provide a bounded model path, one preview format, and an optional bounded C4 focus node id.' } };
     }
-    let model;
-    if (inlineModel !== undefined) {
-      const resolved = resolveInlineModel(inlineModel);
-      if (!resolved.ok) return resolved;
-      model = resolved.model;
-    } else {
-      const loaded = await readModel(readHost(), request.path);
-      if (!loaded.ok) return loaded;
-      model = loaded.model;
-    }
-    return boundResponse(exportPreview(model, request.format, { focus: request.focus, level: request.level }));
+    const resolved = await resolvePanelModel({ model: inlineModel, path: request.path });
+    if (!resolved.ok) return resolved;
+    return boundResponse(exportPreview(resolved.model, request.format, { focus: request.focus, level: request.level }));
   }
   if (name === 'architecture_health') return executeHealth(readHost(), rest, inlineModel);
   return executeAnalysis(readHost(), name, rest, inlineModel);
@@ -331,6 +366,6 @@ async function onPanelInvoke(channel, payload) {
 // `summarize` and the budget constants are exported so the response bounding
 // can be tested without a host; the entry points stay the only `pi` callers.
 module.exports = {
-  onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS, PANEL_CHANNELS, SAVE_CHANNEL,
+  onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS, PANEL_CHANNELS, SAVE_CHANNEL, DIAGRAM_CHANNEL, DRIFT_CHANNEL,
   summarize, MAX_SUMMARY_BYTES, MAX_SUMMARY_NODES, MAX_SUMMARY_EDGES, MAX_SUMMARY_ENTRIES,
 };

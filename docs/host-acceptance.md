@@ -24,6 +24,7 @@
 | A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ✅ 用户本轮确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）；标签页已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）。未单独检查：重复打开/关闭后的残留注册与重复面板（模型记 `unknown:docked-view-lifecycle-residue`） |
 | A14 | 面板采集并生成模型 | 不载入模型，直接在浮动面板或停靠视图点"采集并生成模型" | 返回有界摘要（计数、覆盖账本、盲区、上限）并当场生成完整模型；阅读器立即可用，图查询/影响/健康/导出都在这份内存模型上跑；非正整数文件预算本地拒绝；结构性不合格的模型被拒绝而非分析 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
 | A15 | 面板保存采集模型 | 授予 `fs.write` 并重载；点"采集并生成模型"→"确认目标状态"→"创建"；再点一次确认 `TARGET_EXISTS` 而不是覆盖 | 工作区出现 `architecture/model.json`；面板 `model-source` 变为"来自文件 …"；保存区块隐藏；已有目标时只给快照与显式覆盖；`plugin.log` 无 `PERMISSION_DENIED` | 注册表 `permissions`（含 `fs.write`/`clipboard.write`）+ `plugin.log` + 工作面板 + 工作区文件 | ⬜ 本轮新增，待宿主确认 |
+| A16 | 面板关系图 / 变更集 / 漂移 | 载入或采集一个模型后，依次点"绘制关系图"、点图中一个节点、点"清除焦点"、在"变更集影响"里粘一串路径提交、点"检查漂移" | 关系图渲染出 `<svg>` 且节点可点；焦点切换后出现"清除焦点"；变更集报告"未解析 N 个 / 结论完整：是或否"；漂移给出 `aligned`/`drifted`/`incomplete` 之一并附"不读 Git、不读文件内容"；三者都不产生工作区写入 | 工作面板 + 工作区（确认无新文件）+ `plugin.log`（确认无 `PERMISSION_DENIED`） | ⬜ 1.5.0 新增，待宿主确认 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -96,7 +97,7 @@
 
 ## G. 仍未闭合
 
-- A4 命令注销、A13 重复打开/关闭停靠视图的残留注册、A14 面板采集通道、**A15 面板保存通道**、1.2.0 及以后各版本 `.piplug` 安装回归。
+- A4 命令注销、A13 重复打开/关闭停靠视图的残留注册、A14 面板采集通道、**A15 面板保存通道**、**A16 面板关系图/变更集/漂移三通道**、1.2.0 及以后各版本 `.piplug` 安装回归。
 - 采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断。
 - Java/Maven/Gradle 依赖采集。
 - L4 Code 层。
@@ -108,3 +109,12 @@
 - **修复**：把 `architecture/model.json` 在 1.4.0 时的快照固化为 `fixtures/realistic-model.json`（20 节点 / 27 边 / 30 证据 / 8 视图），测试改读夹具并把这三个计数钉死，快照被悄悄换掉会立刻红。新增守卫"no test reads a local-only directory"：任何测试文件用 `path.join` 或 `require` 触及 `architecture`/`dist`/`Temp`/`.pi`/`node_modules`/`coverage`/`.cache` 即失败；已用带病灶的探针文件双向验证两种形状都能抓住。测试里的裸 `'architecture/model.json'` 字符串是喂给桩宿主的内存路径，不算违规。
 - **验证**：本地把 `architecture/` 临时改名后跑全量，304/304 通过——即 CI 上的真实环境。运行时与打包集合无变化（仍 41 文件、同样字节）。
 - **已回看**：1.4.1 的 run [35946156310](https://github.com/CJLY-0915/pi-architecture-visualization/actions/runs/35946156310)（commit `fdb9211`，push 触发，2026-09-24T02:10:59Z–02:11:37Z）三平台 `conclusion=success`：macOS 11s、Ubuntu 7s、Windows 35s，每个 job 的 7 个 step 全部 success。证据来自本机未认证请求 GitHub Actions API，不是用户证言。至此 `bb03244` 之后"这条守卫从没在 CI 上跑过"的状态结束；README 与 `host-compatibility.md` 中原有的"待回看"措辞已改为该事实。
+
+## I. 1.5.0（2026-09-24）关系图 / 变更集 / 架构漂移
+
+- **做了什么**：面板新增"关系图"（`architecture.diagram`）、"变更集影响"（`architecture.impact` 的批量路径 + `changeSet` 汇总）、"架构漂移"（`architecture.drift`）三个能力；首页主操作由"读取模型"改为"采集并生成模型"，读取降为高级入口。**没有新增任何 agent 工具**——三者都只从面板进入，图需要整个模型、漂移是一次刻意的全工作区扫描，都不适合做成 agent 工具。
+- **为什么不新增工具**：宿主 `MAX_AGENT_EXTENSIONS_PER_PLUGIN=8` 限制的是 agent 扩展（`extensions/workflow-rule.mjs`），不是 agent 工具，本插件 agent 工具仍是 7 个未触顶；真正的原因是这两个操作要么需要整个模型（没有任何工具 schema 带得了），要么成本是一次全工作区扫描，放进会话里会被无意触发。
+- **验证（本地）**：`node --test tests/*.test.js` 304 → **346**，全绿。新增 `tests/diagram.test.js`（18 条）、`tests/drift.test.js`（约 20 条）、面板交互 +3、宿主适配器 +2。漂移测试用桩宿主跑通真实采集器，因此"扫描侧"不是模拟数据。
+- **尚未真机确认**：三个新通道（`architecture.diagram`/`architecture.drift`/变更集表单）**没有**在真实 PI-Desktop 面板里点过；A14 面板采集通道、A15 面板保存通道同样仍未真机确认。这些都要等用户在插件页操作后才能记为已验收，在此之前不算完成。
+- **新集合的干净镜像 `PluginCheck` 待重跑**：运行时集合 41 → 44 文件（新增 `src/core/diagram.js`、`src/core/drift.js`、`src/host/drift-check.js`）。此前 40 文件集合实测无错误，44 文件集合尚未重跑。
+- **面板 DOM 变化**：`renderer/index.html` 新增 `#diagram`/`#drift` 两个 section、`#changeset-form` 一个分析表单；`load-form` 从页面顶部移到 `section#collect` 之后。`tests/panel-interactions.test.js` 的 `querySelectorAll` 硬编码 id 列表已同步加入变更集控件，否则 `setAnalysisBusy` 不会禁用它们。

@@ -891,3 +891,60 @@ test('no agent tool can carry a model or file content, and collect still writes 
     delete global.pi;
   }
 });
+
+test('the diagram channel renders a model without writing and refuses an unknown focus', async () => {
+  const tree = simpleTree();
+  tree.files['architecture/model.json'] = JSON.stringify(model);
+  const host = createHost(tree);
+  try {
+    const diagram = await plugin.onPanelInvoke('architecture.diagram', { path: 'architecture/model.json' });
+    assert.equal(diagram.ok, true);
+    assert.match(diagram.svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+    assert.ok(diagram.nodes.length > 0, 'the diagram reports the nodes it drew');
+    assert.ok(diagram.limitations.length > 0, 'a diagram must state what it is not');
+
+    const focused = await plugin.onPanelInvoke('architecture.diagram', { path: 'architecture/model.json', focus: diagram.nodes[0].id });
+    assert.equal(focused.ok, true);
+    assert.equal(focused.focus.id, diagram.nodes[0].id);
+    assert.ok(focused.svg.includes('data-emphasis="off"'), 'focusing must dim the rest of the graph');
+
+    const unknown = await plugin.onPanelInvoke('architecture.diagram', { path: 'architecture/model.json', focus: 'node.nope' });
+    assert.equal(unknown.ok, false);
+    assert.equal(unknown.error.code, 'invalid_option');
+
+    const badBudget = await plugin.onPanelInvoke('architecture.diagram', { path: 'architecture/model.json', maxNodes: 0 });
+    assert.equal(badBudget.ok, false);
+    assert.equal(badBudget.error.code, 'invalid_option');
+
+    assert.deepEqual(host.writes, [], 'drawing a diagram must not write');
+  } finally {
+    delete global.pi;
+  }
+});
+
+test('the drift channel compares the declared model against a fresh read-only scan', async () => {
+  const tree = simpleTree();
+  tree.files['architecture/model.json'] = JSON.stringify(model);
+  const host = createHost(tree);
+  try {
+    const drift = await plugin.onPanelInvoke('architecture.drift', { path: 'architecture/model.json' });
+    assert.equal(drift.ok, true);
+    assert.ok(['aligned', 'drifted', 'incomplete'].includes(drift.verdict), `unexpected verdict ${drift.verdict}`);
+    assert.ok(drift.limits.some((entry) => entry.toLowerCase().includes('git')), 'the drift result must say it read no Git state');
+    assert.ok(drift.limits.some((entry) => entry.toLowerCase().includes('content')), 'the drift result must say it read no file content');
+    assert.ok(drift.scan.filesEnumerated > 0, 'the scan reports what it enumerated');
+    assert.equal(drift.findings.unmodelledPaths.length > 0, true, 'files the collector models but the fixture never cites are drift');
+
+    const badOption = await plugin.onPanelInvoke('architecture.drift', { path: 'architecture/model.json', maxFindings: 0 });
+    assert.equal(badOption.ok, false);
+    assert.equal(badOption.error.code, 'invalid_option');
+
+    const unknownKey = await plugin.onPanelInvoke('architecture.drift', { path: 'architecture/model.json', branch: 'main' });
+    assert.equal(unknownKey.ok, false);
+    assert.equal(unknownKey.error.code, 'invalid_option');
+
+    assert.deepEqual(host.writes, [], 'a drift check must not write');
+  } finally {
+    delete global.pi;
+  }
+});

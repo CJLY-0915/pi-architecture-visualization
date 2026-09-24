@@ -58,12 +58,28 @@ function emptyStats() {
   return { visitedNodes: 0, visitedEdges: 0, maxDepthReached: 0, elapsedMs: 0 };
 }
 
-function errorResult(error) {
+// A change set is only a batch of explicit targets, so its answer is complete
+// only when every requested target resolved and the traversal stayed inside its
+// budgets. A caller that cannot see this reads an empty result as "no impact"
+// when the truth is "these paths are not modelled".
+function changeSetSummary(targets, unresolvedTargets, truncated, requested) {
+  return {
+    requested,
+    resolved: targets.length,
+    unresolved: unresolvedTargets.length,
+    complete: requested > 0 && unresolvedTargets.length === 0 && truncated === false,
+  };
+}
+
+function errorResult(error, input) {
+  const options = isPlainObject(input) ? input : {};
+  const requested = Array.isArray(options.targets) ? options.targets.length : 0;
   return {
     ok: false,
     error: { code: error.code, message: error.message },
     targets: [],
     unresolvedTargets: [],
+    changeSet: changeSetSummary([], [], false, requested),
     impacted: [],
     stopReasons: [],
     truncated: false,
@@ -487,10 +503,10 @@ function run(input) {
   const options = isPlainObject(input) ? input : {};
 
   const normalized = normalizeImpactOptions(options);
-  if (normalized.error !== undefined) return errorResult(normalized.error);
+  if (normalized.error !== undefined) return errorResult(normalized.error, options);
 
   const resolved = resolveGraph(options);
-  if (resolved.error !== undefined) return errorResult(resolved.error);
+  if (resolved.error !== undefined) return errorResult(resolved.error, options);
   const graph = resolved.value;
   const settings = normalized.value;
 
@@ -507,6 +523,7 @@ function run(input) {
     ok: true,
     targets,
     unresolvedTargets,
+    changeSet: changeSetSummary(targets, unresolvedTargets, traversal.truncated, settings.targetInputs.length),
     impacted: traversal.impacted,
     stopReasons: traversal.stopReasons,
     truncated: traversal.truncated,
@@ -526,13 +543,13 @@ function run(input) {
  * Never throws; diagnostics use shared CODES and retain exception messages.
  *
  * @param {{model?: object, graph?: object, targets?: string[], direction?: string, relationTypes?: string[], maxDepth?: number, maxNodes?: number, maxTimeMs?: number, now?: () => number}} [input]
- * @returns {{ok: boolean, error?: {code: string, message: string}, targets: Array<{input: string, matchedNodeIds: string[]}>, unresolvedTargets: Array<{input: string, reason: string}>, impacted: Array<{nodeId: string, depth: number, via: {edgeId: string, fromNodeId: string, type: string}, status: unknown, confidence: unknown, evidenceIds: unknown[]}>, stopReasons: Array<{reason: string, nodeId?: string, detail: string}>, truncated: boolean, dangling: Array<object>, stats: {visitedNodes: number, visitedEdges: number, maxDepthReached: number, elapsedMs: number}}}
+ * @returns {{ok: boolean, error?: {code: string, message: string}, targets: Array<{input: string, matchedNodeIds: string[]}>, unresolvedTargets: Array<{input: string, reason: string}>, changeSet: {requested: number, resolved: number, unresolved: number, complete: boolean}, impacted: Array<{nodeId: string, depth: number, via: {edgeId: string, fromNodeId: string, type: string}, status: unknown, confidence: unknown, evidenceIds: unknown[]}>, stopReasons: Array<{reason: string, nodeId?: string, detail: string}>, truncated: boolean, dangling: Array<object>, stats: {visitedNodes: number, visitedEdges: number, maxDepthReached: number, elapsedMs: number}}}
  */
 function computeImpact(input) {
   try {
     return run(input);
   } catch (error) {
-    return errorResult({ code: CODES.INTERNAL_ERROR, message: 'Impact analysis failed unexpectedly; no result was computed.' });
+    return errorResult({ code: CODES.INTERNAL_ERROR, message: 'Impact analysis failed unexpectedly; no result was computed.' }, input);
   }
 }
 

@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "id": "local.architecture-visualization",
   "name": "Architecture Visualization",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
   "i18n": {
     "zh-CN": {
       "name": "架构可视化",
       "description": "面向复杂代码库的证据驱动架构理解、影响分析和健康检查。",
-      "safetyNotes": "采集与分析均为只读；只有你点击保存时，才会把当次采集到的模型写入 architecture/ 下你指定的路径，且写入前会先展示目标路径与当前状态。"
+      "safetyNotes": "采集、分析、绘图与漂移检查均为只读；漂移检查会重新扫描一次工作区，但不写入任何文件。只有你点击保存时，才会把当次采集到的模型写入 architecture/ 下你指定的路径，且写入前会先展示目标路径与当前状态。"
     },
     "en": {
       "name": "Architecture Visualization",
       "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
-      "safetyNotes": "Collection and analysis stay read-only; a collected model is written only when you ask for it, only under architecture/, and only after the target path and its current state have been shown."
+      "safetyNotes": "Collection, analysis, drawing and drift checking stay read-only; a drift check re-scans the workspace but writes nothing. A collected model is written only when you ask for it, only under architecture/, and only after the target path and its current state have been shown."
     }
   },
   "main": "main.js",
@@ -109,7 +109,7 @@
       },
       {
         "name": "architecture_impact",
-        "description": "Read-only bounded impact from explicit stable node IDs or evidence file paths. Branch/change-set lookup is unavailable and never inferred.",
+        "description": "Read-only bounded impact from explicit stable node IDs or evidence file paths. A batch of paths is read as a change set and the result reports how many targets stayed unresolved; Git branch or change-set lookup is never inferred.",
         "risk": "low",
         "schema": {
           "type": "object", "additionalProperties": false,

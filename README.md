@@ -45,7 +45,9 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 | 接手一个没人懂的遗留系统 | 未知项优先的清单，开篇即未知项 |
 | 给我一份能自己改的图 | `.drawio`，非确认事实带三重标记 |
 
-面板最小三步：点"采集并生成模型"（无需任何前置模型，也无需先在会话里让 agent 建模）→ 模型当场载入下方阅读器，在节点列表里选一项看详情 → 在图查询或影响分析里提交一个节点 ID。采集本身不写工作区；模型要长期保留，用在采集结果下方出现的"保存这份模型"——它先展示目标路径、该路径当前是否存在、以及新旧两边的节点/关系/证据数，再让你在三个动作里选："创建"（仅当目标不存在）、"另存为快照"（`architecture/snapshots/<sha256>.json`，内容寻址、永不覆盖）、"覆盖写入"（唯一会替换已有文件的动作）。写入标准路径后，面板立即从磁盘重新载入。已经有模型文件时，直接填路径点"读取模型"即可。导出预览只是内存文本，可复制到剪贴板，不下载、不写工作区。
+面板最小三步：点"采集并生成模型"（无需任何前置模型，也无需先在会话里让 agent 建模）→ 模型当场载入下方阅读器，在节点列表里选一项看详情 → 点"绘制关系图"看分层关系图，点图中任一节点聚焦它的直接邻居。采集本身不写工作区；模型要长期保留，用在采集结果下方出现的"保存这份模型"——它先展示目标路径、该路径当前是否存在、以及新旧两边的节点/关系/证据数，再让你在三个动作里选："创建"（仅当目标不存在）、"另存为快照"（`architecture/snapshots/<sha256>.json`，内容寻址、永不覆盖）、"覆盖写入"（唯一会替换已有文件的动作）。写入标准路径后，面板立即从磁盘重新载入。已经有模型文件时，展开后面的"读取已有模型"填路径即可。导出预览只是内存文本，可复制到剪贴板，不下载、不写工作区。
+
+面板还做两件 agent 工具不做的事：**变更集影响**——粘一串工作区相对文件路径，按证据路径解析成节点后跑影响分析，并明确报告有几个路径根本没被建模（"受影响节点为空"和"这些文件不在模型里"是两回事）；**架构漂移**——把当前模型和一次全新的只读全工作区扫描对比，报告模型引用的文件是否还在、是否还被采集器建模、有没有新增却未被引用的文件。漂移不读 Git 也不读文件内容，所以"文件还在且仍被引用"不等于"内容没变"，这条限制就写在结论旁边。
 12 个场景技能：`system-modeler`、`flow-visualizer`、`dependency-impact-analyzer`、`deployment-topology-analyzer`、`evolution-planner`、`risk-quality-reviewer`、`legacy-system-visualizer`、`architecture-communicator`、`architecture-health`，以及 `c4model`/`graphviz`/`drawio` 三个输出格式基础技能。它们复用同一模型与证据规则，区别只在产出形状。
 
 ## 它为工程实践带来什么
@@ -57,16 +59,18 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 3. **C4**：只有一层能看 → 按 `parentId` 链切 L1/L2/L3，每个元素带 `type/status/confidence` 与模型 id。
 4. **可编辑交付物**：`inferred` 和 `confirmed` 的节点在图里长得一样 → 标签后缀、状态填充色、虚线轮廓三重标记。
 5. **文档数字**：各写各的 → 用例数、打包文件数、版本号由测试锁定。
-6. **安全边界**：靠猜 → 声明出来。只读采集与分析、超限即报告、`coverage.complete=false` 就是 `false`、PNG 明确报告受限而不伪造二进制；唯一的写入限定在 `architecture/**`，且写入前先展示目标状态、默认不覆盖。
+6. **变更集**：问"改这几个文件影响什么"得到一张空表 → 未解析路径逐个列出，并给出"结论完整：是/否"。
+7. **架构保鲜**：模型写完就过时，且没人知道 → 一次只读扫描指出哪些引用已失效、哪些新代码没进模型。
+8. **安全边界**：靠猜 → 声明出来。只读采集与分析、超限即报告、`coverage.complete=false` 就是 `false`、PNG 明确报告受限而不伪造二进制；唯一的写入限定在 `architecture/**`，且写入前先展示目标状态、默认不覆盖。
 
 ## 边界：它不是什么
 
 | 不是 | 为什么 |
 | --- | --- |
-| 不是渲染器 | 宿主没有 Structurizr/Graphviz/Draw.io 渲染栈；`.dsl`/`.dot`/`.drawio` 是文本产物，要真图送外部工具 |
-| 不是自动写入工具 | 只在面板显式点击时写入，且仅限 `architecture/**`；宿主 `pi.fs.writeText` 没有原子 rename、没有 CAS，所以写入前重新确认目标状态、写入后按预期大小复核，不把结果谎报成已保存 |
+| 不是渲染器 | 宿主没有 Structurizr/Graphviz/Draw.io 渲染栈；`.dsl`/`.dot`/`.drawio` 是文本产物，要真图送外部工具。面板里的关系图是模型结构图，不是运行态拓扑图 |
+| 不是自动写入工具 | 只在面板显式点击时写入，且仅限 `architecture/**`；宿主 `pi.fs.writeText` 没有原子 rename、没有 CAS，所以写入前重新确认目标状态、写入后按预期大小复核，不把结果谎报成已保存。面板的关系图、变更集与漂移都是纯读，不产生任何文件 |
 | 不是发现引擎 | `architecture_collect` 是证据交叉核对，不是系统枚举；找不到的会报告，不猜 |
-| 不是 Git 工具 | 不读 Git、不推断分支；`architecture_compare` 只比较两个模型文件 |
+| 不是 Git 工具 | 不读 Git、不推断分支；`architecture_compare` 只比较两个模型文件，漂移检查只看文件路径是否存在、是否仍被采集器建模 |
 | 不是完整 C4 工具链 | 有层级切分，没有 C4 渲染；L4（Code）刻意不切，模块密度归 `graphviz` |
 
 什么时候不该用：想知道"现在跑得怎么样"（它只读模型，不观测运行时）；要一张能贴进 PPT 的位图（送外部工具）；系统几乎没有静态证据（先用 `legacy-system-visualizer` 做未知项清单，不要先建模）。
@@ -118,14 +122,14 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 
 ### 工作台与常驻规则
 
-- 面板只经 `window.pluginBridge.invoke` 访问 7 个固定通道（`architecture.query`/`architecture.impact`/`architecture.compare`/`architecture.exportPreview`/`architecture.health`/`architecture.collect`/`architecture.save`）以及宿主 `workspace.get`、`fs.stat`、`fs.readText`、`fs.openDefault`、`fs.writeText`、`clipboard.writeText`，不碰任意 Electron IPC，也不调用 Agent 工具注册表。`architecture.save` 是唯一的写入入口，只从面板可达（没有任何 Agent 工具的 schema 带得了整个模型），且主进程在写入前重新校验模型、重新确认目标状态。宿主**没有**打开停靠视图的 API，命令因此保留为浮动面板入口。
+- 面板只经 `window.pluginBridge.invoke` 访问 9 个固定通道（`architecture.query`/`architecture.impact`/`architecture.compare`/`architecture.exportPreview`/`architecture.health`/`architecture.collect`/`architecture.diagram`/`architecture.drift`/`architecture.save`）以及宿主 `workspace.get`、`fs.stat`、`fs.readText`、`fs.openDefault`、`fs.writeText`、`clipboard.writeText`，不碰任意 Electron IPC，也不调用 Agent 工具注册表。`architecture.save` 是唯一的写入入口，只从面板可达（没有任何 Agent 工具的 schema 带得了整个模型），且主进程在写入前重新校验模型、重新确认目标状态。`architecture.diagram` 与 `architecture.drift` 同样只从面板进入：前者需要整个模型，后者是一次刻意的全工作区扫描，两者都不适合做成 agent 工具。宿主**没有**打开停靠视图的 API，命令因此保留为浮动面板入口。
 - 内存预览 10 种格式：Structurizr DSL、C4 层级 DSL、DOT、Mermaid、Draw.io XML、Markdown、JSON、SVG、PNG（明确报告受限）、离线 HTML。`c4` 按 `parentId` 链切层；Draw.io 对非 `confirmed`/`high` 的事实带标记；每个预览都带模型版本、范围、revision、生成时间、覆盖状态、图例和限制。
 - `extensions/workflow-rule.mjs` 刻意零依赖（无 import / fs / 网络 / 时钟 / 随机），由 `tests/agent-extension.test.js` 静态守卫。宿主用 `(acc,next)=>({...acc ?? {}, ...next})` 合并 handler 返回值，且返回的 `systemPrompt` 会**替换**整体提示，因此模块必须把 base 原样带上再拼接，追加以 `## Architecture Visualization` marker 判重。入口必须是 `.mjs`（`package.json` 为 `"type": "commonjs"`）。
 - manifest 必须给每条技能显式 `id`：宿主用文件基名派生技能 id，13 个 `SKILL.md` 会撞成同一个，只注册第一个。`agent.extension` 已由用户在插件页显式授予；dev 插件的权限天花板冻结在授权时刻。
 
 ### 质量门禁
 
-`node --test tests/*.test.js` 当前 304/304（已在 `architecture/` 缺席的条件下复现 CI 环境验证通过）；三平台 CI 最新 run（commit `fdb9211`）已回看并三平台全绿——`bb03244` 之后曾因测试读取 gitignore 目录而三平台全红，1.4.1 修复后确认恢复；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件——新增 `src/host/save-model.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
+`node --test tests/*.test.js` 当前 346/346（已在 `architecture/` 缺席的条件下复现 CI 环境验证通过）；三平台 CI 最新 run（commit `fdb9211`）已回看并三平台全绿——`bb03244` 之后曾因测试读取 gitignore 目录而三平台全红，1.4.1 修复后确认恢复；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件，1.5.0 起 **44 文件**——新增 `src/core/diagram.js`、`src/core/drift.js`、`src/host/drift-check.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 
 ## 设计原则
 

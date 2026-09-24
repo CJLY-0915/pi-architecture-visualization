@@ -61,7 +61,7 @@ function createPanelHarness(respond) {
   const document = {
     getElementById(id) { return elements.get(id) || null; },
     createElement() { return new Element(); },
-    querySelectorAll(selector) { assert.equal(selector, '.analysis-form input, .analysis-form select, .analysis-form button'); return ['query-mode', 'query-targets', 'query-to', 'impact-targets', 'impact-direction', 'compare-before', 'compare-after', 'export-format', 'query-form', 'impact-form', 'compare-form', 'export-form', 'health-form'].map((id) => elements.get(id)); },
+    querySelectorAll(selector) { assert.equal(selector, '.analysis-form input, .analysis-form select, .analysis-form button'); return ['query-mode', 'query-targets', 'query-to', 'impact-targets', 'impact-direction', 'changeset-paths', 'changeset-direction', 'compare-before', 'compare-after', 'export-format', 'query-form', 'impact-form', 'changeset-form', 'compare-form', 'export-form', 'health-form'].map((id) => elements.get(id)); },
   };
   const window = {
     pluginBridge: {
@@ -479,4 +479,122 @@ test('a refused save is reported and the model stays in memory', async () => {
   assert.equal(elements.get('model-source').textContent, '来自本次采集（未落盘）');
   assert.equal(elements.get('save-create').hidden, true);
   assert.equal(elements.get('save-overwrite').hidden, true);
+});
+test('panel draws a diagram, focuses a node through the index, and keeps the limits visible', async () => {
+  const harness = createPanelHarness((channel, payload) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'architecture.diagram') {
+      // Focus is part of the request, so the stub answers with the state the
+      // panel asked for instead of pretending one fixed diagram exists.
+      const focused = typeof payload === 'object' && payload !== null && typeof payload.focus === 'string';
+      return {
+        ok: true,
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 656 390"><g class="dg-node" data-node-id="container.api" data-emphasis="on"><rect/></g><g class="dg-node" data-node-id="module.invoice" data-emphasis="off"><rect/></g></svg>',
+        nodes: [{ id: 'container.api', name: 'API', type: 'container', status: 'confirmed', depth: 0 }, { id: 'module.invoice', name: 'Invoice', type: 'module', status: 'confirmed', depth: 1 }],
+        edges: [{ id: 'edge.api.invoice', source: 'container.api', target: 'module.invoice', type: 'calls' }],
+        focus: focused ? { id: 'container.api', name: 'API', neighbours: ['module.invoice'] } : null,
+        truncated: false, omitted: { nodes: 0, edges: 0 },
+        layout: { layers: 2, width: 656, height: 390, maxNodes: 150, maxEdges: 300 },
+        limitations: ['确定性分层布局，不是运行态拓扑。'],
+      };
+    }
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+  elements.get('load-form').dispatch('submit');
+  await settle();
+
+  elements.get('diagram-draw').dispatch('click');
+  await settle();
+  const drawn = calls.at(-1);
+  assert.equal(drawn.channel, 'architecture.diagram');
+  assert.equal(drawn.payload.path, 'architecture/model.json');
+  assert.equal(elements.get('diagram-status').dataset.kind, 'ready');
+  assert.match(elements.get('diagram-stage').innerHTML, /data-node-id="container\.api"/);
+  assert.ok(containsText(elements.get('diagram-results'), '确定性分层布局'));
+  assert.equal(elements.get('diagram-clear').hidden, true, 'no focus was requested, so there is nothing to clear');
+
+  // The index is the accessible path to the same focus the SVG carries.
+  assert.equal(elements.get('diagram-index').children.length, 2);
+  elements.get('diagram-index').children[0].dispatch('click');
+  await settle();
+  assert.equal(calls.at(-1).payload.focus, 'container.api');
+  assert.equal(elements.get('diagram-clear').hidden, false);
+  assert.ok(containsText(elements.get('diagram-results'), '焦点：API'));
+
+  elements.get('diagram-clear').dispatch('click');
+  await settle();
+  assert.equal(calls.at(-1).payload.focus, undefined, 'clearing the focus must not send one');
+  assert.equal(elements.get('diagram-clear').hidden, true);
+});
+
+test('panel reports a change set as incomplete when a path matched nothing', async () => {
+  const harness = createPanelHarness((channel) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'architecture.impact') return {
+      ok: true, sourceContentVerified: false,
+      targets: [{ input: 'src/invoice/store.js', matchedNodeIds: ['container.api'] }],
+      unresolvedTargets: [{ input: 'src/gone.js', reason: 'No stable node ID, stable file ID or declared evidence path matches this target.' }],
+      changeSet: { requested: 2, resolved: 1, unresolved: 1, complete: false },
+      impacted: [{ nodeId: 'datastore.billingdb', depth: 1, via: { edgeId: 'edge.api.db', fromNodeId: 'container.api', type: 'reads' }, status: 'confirmed', confidence: 'high', evidenceIds: [] }],
+      stopReasons: [{ reason: 'frontier_exhausted', detail: 'traversal completed' }],
+      truncated: false, dangling: [], stats: { visitedNodes: 1, visitedEdges: 1, maxDepthReached: 1, elapsedMs: 0 },
+      modelContext: { coverage: model.coverage },
+    };
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+  elements.get('load-form').dispatch('submit');
+  await settle();
+
+  elements.get('changeset-paths').value = 'src/invoice/store.js src/gone.js';
+  elements.get('changeset-form').dispatch('submit');
+  await settle();
+
+  const sent = calls.at(-1);
+  assert.equal(sent.channel, 'architecture.impact');
+  assert.deepEqual([...sent.payload.targets], ['src/invoice/store.js', 'src/gone.js'], 'a pasted path list must not silently drop entries');
+  assert.ok(containsText(elements.get('analysis-results'), '变更集汇总'));
+  assert.ok(containsText(elements.get('analysis-results'), '未解析 1 个'));
+  assert.ok(containsText(elements.get('analysis-results'), '结论完整：否'));
+  assert.ok(containsText(elements.get('analysis-results'), 'src/gone.js'));
+});
+
+test('panel reports a drifted model and repeats the no-Git limit next to the verdict', async () => {
+  const harness = createPanelHarness((channel) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'architecture.drift') return {
+      ok: true, verdict: 'drifted',
+      findings: {
+        missingEvidence: [{ evidenceId: 'ev.gone', path: 'src/gone.js', nodeIds: ['container.api'], edgeIds: [] }],
+        noLongerModelled: [{ evidenceId: 'ev.dropped', path: 'src/dropped.js', nodeIds: [], edgeIds: [] }],
+        unmodelledPaths: [{ path: 'src/new.js' }],
+        existenceUnknown: [],
+      },
+      counts: { evidence: 4, missingEvidence: 1, noLongerModelled: 1, unmodelledPaths: 1, existenceUnknown: 0, enumerated: 9, modelled: 3 },
+      truncated: false, omitted: { missingEvidence: 0, noLongerModelled: 0, unmodelledPaths: 0, existenceUnknown: 0 },
+      limits: ['No Git state was read, so a file that still exists and is still cited may have changed without this check noticing.', 'No source file content was read; freshness is decided by path presence only.'],
+      scan: { filesEnumerated: 9, filesModelled: 3, coverage: { complete: true }, diagnostics: [] },
+    };
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+  elements.get('load-form').dispatch('submit');
+  await settle();
+
+  elements.get('drift-run').dispatch('click');
+  await settle();
+  assert.equal(calls.at(-1).channel, 'architecture.drift');
+  assert.equal(calls.at(-1).payload.path, 'architecture/model.json');
+  assert.equal(elements.get('drift-status').dataset.kind, 'ready');
+  assert.ok(containsText(elements.get('drift-results'), '模型已偏离当前工作区'));
+  assert.ok(containsText(elements.get('drift-results'), 'src/gone.js'));
+  assert.ok(containsText(elements.get('drift-results'), '被 1 个节点 / 0 条边引用'));
+  assert.ok(containsText(elements.get('drift-results'), 'No Git state was read'));
 });
