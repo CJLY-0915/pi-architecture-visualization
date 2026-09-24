@@ -36,7 +36,18 @@ test('tool names, risk and schemas match the manifest exactly', () => {
     assert.equal(tool.risk, 'low');
     assert.equal(name.startsWith('plugin_'), false);
   }
-  assert.equal(manifest.permissions.includes('fs.write'), false);
+});
+
+test('the write permission is scoped to the architecture directory only', () => {
+  assert.equal(manifest.permissions.includes('fs.write'), true, 'saving a collected model needs fs.write');
+  const write = manifest.fs && manifest.fs.write;
+  assert.ok(write, 'fs.write must be declared with a manifest.fs.write scope');
+  assert.equal(write.root, 'workspace');
+  assert.ok(Array.isArray(write.scope) && write.scope.length > 0, 'fs.write needs a scope');
+  for (const pattern of write.scope) {
+    assert.ok(pattern.startsWith('architecture/'), `the write scope must stay inside architecture/: ${pattern}`);
+    assert.notEqual(pattern.replace(/[*/.]/g, ''), '', 'a write scope must not cover the whole root');
+  }
 });
 
 test('query tool loads a validated model and preserves incomplete coverage', async () => {

@@ -3,6 +3,55 @@
 格式遵循 Keep a Changelog；版本号遵循语义化版本。本仓库在 1.0.0 之前没有变更记录，
 因此 1.0.0 条目覆盖的是整个开发周期的净结果，而不是相对某个已发布版本的增量。
 
+## [1.4.0] - 2026-09-24
+
+面板可以把一次采集结果写进工作区了。写入前先展示目标状态，默认不覆盖已有文件。
+
+### 新增
+
+- **面板保存采集模型**（`architecture.save` 通道）：不带 `decision` 时只做规划，返回目标路径、
+  `targetState`（`missing`/`present`/`unknown`）、目标字节数、内容寻址快照路径，以及新旧两边的
+  节点/关系/证据数与 `sourceRevision`。三种决策：`create`（目标不存在才写，否则 `TARGET_EXISTS`）、
+  `snapshot`（写 `architecture/snapshots/<sha256>.json`，内容寻址、幂等，同样内容已在盘上则报告
+  `alreadyPresent` 且不重复写）、`overwrite`（唯一允许替换已有文件的动作；目标无法 inspect 时以
+  `TARGET_STATE_UNKNOWN` 拒绝）。每个决策在写入时都重新 `stat`，面板展示的计划不背着过期结论。
+- **闭环**：写入标准路径成功后，面板立即用同一路径重新读取，来源标记从"来自本次采集（未落盘）"
+  变为"来自文件 …"，保存区块随之隐藏。
+
+### 权限
+
+- 申请 `fs.write`，并首次声明 `manifest.fs.write = {root:"workspace", scope:["architecture/**"]}`。
+  `fs.write` 属宿主 `HIGH_RISK_PERMISSIONS`，与 `net.fetch`/`agent.prompt.inject` 同级，因此由用户
+  在插件页显式授予；`architecture/**` 之外的路径一个字节都写不到。
+- 补上 1.3.0 遗漏的 `clipboard.write`：宿主 `clipboard.writeText` 会
+  `assertPermission(loaded,"clipboard.write")`（`app.asar` `out/main/index.js:101097-101098`），
+  未声明时"复制到剪贴板"在真实宿主必然被拒。`tests/registration-contract.test.js` 新增"面板宿主桥
+  通道→权限映射"守卫，新通道不在映射表或权限没声明即测试失败。
+
+### 修复
+
+- 采集区块的 HTML 有一个多余的 `</form>`；顺带清掉。
+- `renderCollect` 的"边界"卡片仍写着"模型只在内存：没有写入磁盘。要长期保留，请把导出预览的 JSON
+  存成 architecture/model.json 后重新读取"——保存通道已存在，该指引过期。
+- 采集结果卡片里的 `previewCard` 文案在 1.2.0 已修，但采集区块自己的三处"不写入/不保存"措辞与新
+  的保存入口矛盾，一并改为准确表述。
+
+### 安全
+
+- 主进程重新校验模型（`validateModel` + `planSnapshotSave`），结构性不合格返回 `INVALID_MODEL`，
+  一个字节都不写；沿用文件模型的 2 Mi 字符预算。
+- 宿主 `pi.fs.writeText` 是 `mkdirSync` + `writeFileSync` 直接覆盖，没有原子 rename、没有 CAS。
+  因此写入后再 `stat` 一次，字节数不符返回 `WRITE_UNVERIFIED`，不把结果谎报成已保存。
+- `stat` 失败一律记为 `unknown` 而不是 `missing`：把看不见的目标说成不存在，正是一次静默覆盖的开始。
+- `pi.fs.writeText` 在 `main.js` 中只出现一次（`writeHost()`）；没有任何 Agent 工具的 schema 带得了
+  整个模型，因此保存没有 agent 入口。
+
+### 测试
+
+- `node --test tests/*.test.js` 277 → 303。新增 `tests/save-model.test.js`（16 条），`host-adapter`
+  +5、`panel-interactions` +3、`registration-contract` +1、`analysis-tools` 的写权限 scope 守卫各若干。
+- **未在真实宿主确认**：`fs.write` 授权生效后的实际写入（记为 A15）。
+
 ## [1.0.0] - 2026-09-23
 
 首个标记为稳定的版本。插件能力：从一个仓库采集证据充分的当前状态模型，并在模型之上

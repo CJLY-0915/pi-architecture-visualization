@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const plugin = require('../main.js');
 const model = require('../fixtures/valid-minimal-model.json');
+const { validateModel } = require('../src/core/validation.js');
 
 const WORKSPACE = { path: 'E:/work/demo', name: 'demo' };
 
@@ -12,6 +13,7 @@ const WORKSPACE = { path: 'E:/work/demo', name: 'demo' };
 // (one directory at a time, entries sorted by name) and pi.fs.readText.
 function createHost(tree, options = {}) {
   const reads = [];
+  const writes = [];
   const lists = [];
   const commands = new Map();
   const tools = new Map();
@@ -43,6 +45,10 @@ function createHost(tree, options = {}) {
         if (value === undefined) throw Object.assign(new Error('not found'), { code: 'NOT_FOUND' });
         return { size: Buffer.byteLength(value, 'utf8'), mtimeMs: 0 };
       },
+      writeText: async (path, content) => {
+        writes.push({ path, content });
+        tree.files[path] = content;
+      },
     },
     commands: {
       register: async (command) => commands.set(command.id, command),
@@ -65,7 +71,7 @@ function createHost(tree, options = {}) {
   };
 
   return {
-    reads, lists, commands, tools, removed, toasts,
+    reads, writes, lists, commands, tools, removed, toasts,
     panelCount: () => panels,
     setWorkspace: (next) => { workspace = next; },
   };
@@ -787,4 +793,101 @@ test('the panel collect channel reports the workspace name, not a bare host id',
     assert.equal(collected.model.project.name, 'Demo Billing');
     await plugin.onUnload();
   });
+});
+
+test('the panel save channel plans a write without performing one', async () => {
+  const tree = simpleTree();
+  tree.files['architecture/model.json'] = JSON.stringify(model);
+  await withHost(tree, {}, async (host) => {
+    const plan = await plugin.onPanelInvoke('architecture.save', { model, path: 'architecture/model.json' });
+    assert.equal(plan.ok, true);
+    assert.equal(plan.save.targetState, 'present');
+    assert.equal(plan.save.action, 'recheck');
+    assert.equal(plan.save.new.nodes, model.nodes.length);
+    assert.equal(plan.save.existing.nodes, model.nodes.length);
+    assert.equal(plan.save.written, undefined, 'a plan must not claim a write');
+    assert.deepEqual(host.writes, [], 'a plan must not write');
+  });
+});
+
+test('the panel save channel creates a missing target and refuses to overwrite one silently', async () => {
+  const tree = simpleTree();
+  await withHost(tree, {}, async (host) => {
+    const created = await plugin.onPanelInvoke('architecture.save', { model, path: 'architecture/model.json', decision: 'create' });
+    assert.equal(created.ok, true);
+    assert.equal(created.save.written, true);
+    assert.equal(created.save.verified, true);
+    assert.equal(created.save.path, 'architecture/model.json');
+    assert.equal(host.writes.length, 1);
+    assert.equal(validateModel(JSON.parse(tree.files['architecture/model.json'])).valid, true);
+
+    // The target exists now, so the same decision is refused rather than silently
+    // replacing what was just written.
+    const again = await plugin.onPanelInvoke('architecture.save', { model, path: 'architecture/model.json', decision: 'create' });
+    assert.equal(again.ok, false);
+    assert.equal(again.error.code, 'TARGET_EXISTS');
+    assert.equal(host.writes.length, 1, 'a refused decision must not write');
+
+    // An explicit overwrite still works, and says what it replaced.
+    const overwritten = await plugin.onPanelInvoke('architecture.save', { model, path: 'architecture/model.json', decision: 'overwrite' });
+    assert.equal(overwritten.ok, true);
+    assert.equal(overwritten.save.written, true);
+    assert.equal(overwritten.save.existing.nodes, model.nodes.length);
+    assert.equal(host.writes.length, 2);
+  });
+});
+
+test('a snapshot save leaves the standard path alone', async () => {
+  const tree = simpleTree();
+  tree.files['architecture/model.json'] = JSON.stringify(model);
+  await withHost(tree, {}, async (host) => {
+    const before = tree.files['architecture/model.json'];
+    const result = await plugin.onPanelInvoke('architecture.save', { model, path: 'architecture/model.json', decision: 'snapshot' });
+    assert.equal(result.ok, true);
+    assert.equal(result.save.written, true);
+    assert.match(result.save.path, /^architecture\/snapshots\/[a-f0-9]{64}\.json$/);
+    assert.equal(tree.files['architecture/model.json'], before, 'the standard path must not move');
+    assert.equal(host.writes.length, 1);
+  });
+});
+
+test('the save channel refuses unknown keys, bad decisions and unsafe paths', async () => {
+  const tree = simpleTree();
+  await withHost(tree, {}, async (host) => {
+    for (const bad of [{ model, path: 'architecture/model.json', save: true }, { model, path: 'architecture/model.json', format: 'json' }]) {
+      const rejected = await plugin.onPanelInvoke('architecture.save', bad);
+      assert.equal(rejected.ok, false, `${JSON.stringify(Object.keys(bad))} must be refused`);
+      assert.equal(rejected.error.code, 'invalid_option');
+    }
+    for (const decision of ['replace', 'delete', '', 1, null]) {
+      const rejected = await plugin.onPanelInvoke('architecture.save', { model, path: 'architecture/model.json', decision });
+      assert.equal(rejected.ok, false, `decision ${JSON.stringify(decision)} must be refused`);
+      assert.equal(rejected.error.code, 'invalid_option');
+    }
+    for (const path of ['../model.json', '/model.json', 'C:/model.json', 'a\\b.json']) {
+      const rejected = await plugin.onPanelInvoke('architecture.save', { model, path });
+      assert.equal(rejected.ok, false, `${path} must be refused`);
+      assert.equal(rejected.error.code, 'INVALID_PATH');
+    }
+    assert.deepEqual(host.writes, [], 'nothing may be written by a refused request');
+  });
+});
+
+test('no agent tool can carry a model or file content, and collect still writes nothing', async () => {
+  const tree = simpleTree();
+  const host = createHost(tree);
+  try {
+    await plugin.onLoad();
+    for (const tool of host.tools.values()) {
+      const properties = Object.keys((tool.schema && tool.schema.properties) || {});
+      assert.ok(!properties.includes('model'), `${tool.name} must not accept a whole model`);
+      assert.ok(!properties.includes('content'), `${tool.name} must not accept file content`);
+    }
+    const collected = await host.tools.get('architecture_collect').execute({ includeModel: true });
+    assert.equal(collected.ok, true);
+    assert.ok(collected.model, 'the tool still hands back the model for the panel');
+    assert.deepEqual(host.writes, [], 'collecting must not write');
+  } finally {
+    delete global.pi;
+  }
 });

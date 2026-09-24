@@ -23,6 +23,7 @@
 | A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
 | A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ✅ 用户本轮确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）；标签页已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）。未单独检查：重复打开/关闭后的残留注册与重复面板（模型记 `unknown:docked-view-lifecycle-residue`） |
 | A14 | 面板采集并生成模型 | 不载入模型，直接在浮动面板或停靠视图点"采集并生成模型" | 返回有界摘要（计数、覆盖账本、盲区、上限）并当场生成完整模型；阅读器立即可用，图查询/影响/健康/导出都在这份内存模型上跑；非正整数文件预算本地拒绝；结构性不合格的模型被拒绝而非分析 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
+| A15 | 面板保存采集模型 | 授予 `fs.write` 并重载；点"采集并生成模型"→"确认目标状态"→"创建"；再点一次确认 `TARGET_EXISTS` 而不是覆盖 | 工作区出现 `architecture/model.json`；面板 `model-source` 变为"来自文件 …"；保存区块隐藏；已有目标时只给快照与显式覆盖；`plugin.log` 无 `PERMISSION_DENIED` | 注册表 `permissions`（含 `fs.write`/`clipboard.write`）+ `plugin.log` + 工作面板 + 工作区文件 | ⬜ 本轮新增，待宿主确认 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -77,3 +78,25 @@
 - 版本 1.1.0 → 1.2.0；`node --test tests/*.test.js` 270/270。
 - **采集结果当场成为活动模型**：`architecture.collect` 接受 `includeModel` 一并回传完整模型，面板载入阅读器；四个分析通道的面板入口接受 `model` 代替 `path`，主进程重新校验后才使用。Agent 工具契约不变（`additionalProperties: false` 已拒绝 `model`），内存模型这条路只有面板能走。
 - 版本 1.2.0 → 1.3.0；`node --test tests/*.test.js` 273/273。
+
+## F. 1.4.0（2026-09-24）新增：面板保存采集模型（用户授权 A）
+
+- **动机**：1.3.0 让"采集并生成模型"一键得到可用模型，但产物只在内存；GPT 外部评审指出"一键 Analyze Project"应包含"自动保存 ↓ 打开架构图"。用户选择方案 A——授权 `fs.write`，把闭环补齐。
+- **权限**：`manifest.permissions` 增加 `fs.write`，并首次声明 `manifest.fs.write = {root:"workspace", scope:["architecture/**"]}`。宿主 `scopePatternError` 拒绝覆盖整个 root 的写范围；`architecture/**` 合法。`fs.write` 属宿主 `HIGH_RISK_PERMISSIONS`，与 `net.fetch`/`agent.prompt.inject` 同级，因此本项由用户显式授权（A 组 A15）。
+- **顺带修掉一个既有缺陷**：宿主 `clipboard.writeText` 会 `assertPermission(loaded,"clipboard.write")`（`app.asar` `out/main/index.js:101097-101098`），而 1.3.0 上线的"复制到剪贴板"从未声明该权限——真实宿主必然拒绝，只是当时的测试用的是 stub bridge，看不出来。1.4.0 补上 `clipboard.write`，并由 `tests/registration-contract.test.js` 的"面板宿主桥通道→权限映射"测试永久守住（新增通道不在映射表里、或映射的权限没声明，测试即红）。
+- **写入前明示目标状态**：`architecture.save` 无 `decision` 时只做规划，不写任何字节。返回目标路径、`targetState`（`missing`/`present`/`unknown`）、目标字节数、`snapshotPath`、以及新旧两边的节点/关系/证据数与 `sourceRevision`。`stat` 失败一律记为 `unknown` 而不是 `missing`——把看不见的目标说成不存在，正是一次静默覆盖的开始。
+- **三种决策，只有一种能替换文件**：`create`（目标不存在才写，否则 `TARGET_EXISTS`）、`snapshot`（写 `architecture/snapshots/<sha256>.json`，内容寻址；同样内容已在盘上则报告 `alreadyPresent` 且不重复写）、`overwrite`（唯一允许替换已有文件的动作；目标无法 inspect 时以 `TARGET_STATE_UNKNOWN` 拒绝）。每个决策在写入时都重新 `stat` 一次，面板展示的计划不背着"目标当时不存在"这个过期结论。
+- **模型不信任来源**：主进程重新跑 `validateModel` 与 `planSnapshotSave`，结构性不合格返回 `INVALID_MODEL`，一个字节都不写；沿用文件模型的 2 Mi 字符预算。
+- **闭环**：写入标准路径成功后，面板立即用同一路径重新读取，`model-source` 从"来自本次采集（未落盘）"变为"来自文件 …"，保存区块随之隐藏——GPT 说的"自动保存 ↓ 打开架构图"至此完整。
+- **写入不谎报**：宿主 `pi.fs.writeText` 是 `mkdirSync` + `writeFileSync` 直接覆盖，没有原子 rename、没有 CAS。因此写完后再 `stat` 一次，字节数不符即返回 `WRITE_UNVERIFIED`，不报成已保存。
+- **只有面板能写**：`pi.fs.writeText` 在 `main.js` 中只出现一次（`writeHost()`）；没有任何 Agent 工具的 schema 带得了整个模型，因此保存没有 agent 入口。
+- 回归覆盖：`tests/save-model.test.js`（新增 16 条：目标状态判定、三种决策、幂等快照、规范化文本与指纹、拒绝路径、写入复核）、`tests/host-adapter.test.js`（+5）、`tests/panel-interactions.test.js`（+3）、`tests/registration-contract.test.js`（+1）、`tests/analysis-tools.test.js`（写权限 scope 守卫）。
+- 版本 1.3.1 → 1.4.0；`node --test tests/*.test.js` 303/303。运行时集合 40 → 41 文件，新集合的干净镜像 `PluginCheck` 实测待重跑。
+- **A15 待用户确认**：在插件页授予 `fs.write`（与 `clipboard.write`）并重载后，点一次"采集并生成模型"→"确认目标状态"→"创建"，确认工作区出现 `architecture/model.json`、面板切换到"来自文件"、并且 `plugin.log` 无 `PERMISSION_DENIED`。
+
+## G. 仍未闭合
+
+- A4 命令注销、A13 重复打开/关闭停靠视图的残留注册、A14 面板采集通道、**A15 面板保存通道**、1.2.0 及以后各版本 `.piplug` 安装回归。
+- 采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断。
+- Java/Maven/Gradle 依赖采集。
+- L4 Code 层。

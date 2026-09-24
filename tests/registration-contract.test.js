@@ -102,7 +102,7 @@ test('every declared command has an activation event and vice versa', () => {
 
 test('the panel invokes only whitelisted channels, and every whitelisted channel is used', () => {
   const used = [...new Set([...RENDERER.matchAll(/architecture\.[a-zA-Z]+/g)].map((match) => match[0]))].sort();
-  const whitelisted = Object.keys(plugin.PANEL_ANALYSIS_CHANNELS).sort();
+  const whitelisted = plugin.PANEL_CHANNELS;
   assert.ok(used.length > 0, 'the panel should call at least one architecture channel');
   assert.deepEqual(used, whitelisted, 'panel channels and the main.js whitelist must match in both directions');
 });
@@ -111,7 +111,7 @@ test('an unwhitelisted panel channel is refused instead of executed', async () =
   const files = { 'architecture/model.json': JSON.stringify(model) };
   const host = createHost(files);
   try {
-    for (const channel of ['architecture.save', 'architecture.export', 'fs.write', 'ui.openPanel']) {
+    for (const channel of ['architecture.export', 'fs.write', 'ui.openPanel']) {
       const result = await plugin.onPanelInvoke(channel, { path: 'architecture/model.json' });
       assert.equal(result.ok, false, `${channel} must not be available`);
       assert.equal(result.error.code, 'unsupported_input', `${channel} must be refused as unsupported`);
@@ -126,7 +126,7 @@ test('every whitelisted panel channel reaches a handler', async () => {
   const files = { 'architecture/model.json': JSON.stringify(model) };
   await loadPlugin(files);
   try {
-    for (const channel of Object.keys(plugin.PANEL_ANALYSIS_CHANNELS)) {
+    for (const channel of plugin.PANEL_CHANNELS) {
       const result = await plugin.onPanelInvoke(channel, { path: 'architecture/model.json' });
       // `architecture.exportPreview` and `architecture.health` are implemented
       // inside onPanelInvoke rather than as agent tools, and impact/compare
@@ -192,4 +192,42 @@ test('the docked view shares the panel renderer without an unconditional drag re
     'the bare .masthead rule must not be a drag region, or the docked view inherits it');
   assert.match(RENDERER, /html\[data-pi-plugin-panel-shape="panel"\]\s*\.masthead\s*\{[^}]*-webkit-app-region:\s*drag/,
     'the drag region must be scoped to the floating panel shape');
+});
+
+// Every host bridge channel the renderer calls is gated by a permission in the
+// host (app.asar out/main/index.js). `clipboard.writeText` needs
+// `clipboard.write` and `fs.writeText` needs `fs.write`; a channel whose
+// permission is not declared is refused at runtime, which is exactly the kind
+// of failure a stub bridge in a unit test cannot see.
+const PANEL_BRIDGE_PERMISSIONS = Object.freeze({
+  'workspace.get': null,
+  'fs.stat': 'fs.read',
+  'fs.readText': 'fs.read',
+  'fs.openDefault': 'fs.read',
+  'fs.writeText': 'fs.write',
+  'clipboard.writeText': 'clipboard.write',
+});
+
+test('every host bridge channel the panel uses is backed by a declared permission', () => {
+  const script = /<script>\s*([\s\S]*?)\s*<\/script>/.exec(RENDERER)[1];
+  const used = [...new Set([...script.matchAll(/bridgeInvoke\(\s*"([^"]+)"/g)].map((match) => match[1]))]
+    .filter((channel) => /^(fs|clipboard|workspace)\./.test(channel)).sort();
+  assert.ok(used.length > 0, 'the panel should call at least one host bridge channel');
+  for (const channel of used) {
+    assert.ok(Object.prototype.hasOwnProperty.call(PANEL_BRIDGE_PERMISSIONS, channel),
+      `${channel} is not in the reviewed host bridge map`);
+    const permission = PANEL_BRIDGE_PERMISSIONS[channel];
+    if (permission === null) continue;
+    assert.ok(manifest.permissions.includes(permission),
+      `${channel} needs the ${permission} permission, which the manifest does not declare`);
+  }
+  // `pi.fs.writeText` is reached from exactly one place: the save host adapter
+  // in main.js. The renderer never names it, so no other panel operation can
+  // reach a write, and the save channel is dispatched before the analysis
+  // channel lookup so it cannot be shadowed.
+  const MAIN = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  assert.equal([...MAIN.matchAll(/pi\.fs\.writeText\(/g)].length, 1,
+    'only the save host adapter may call pi.fs.writeText');
+  assert.match(MAIN, /if \(channel === SAVE_CHANNEL\) return saveFromPanel\(payload\);/,
+    'the save channel must be dispatched before the analysis channel lookup');
 });

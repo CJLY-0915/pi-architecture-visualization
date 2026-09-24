@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "id": "local.architecture-visualization",
   "name": "Architecture Visualization",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
   "i18n": {
     "zh-CN": {
       "name": "架构可视化",
       "description": "面向复杂代码库的证据驱动架构理解、影响分析和健康检查。",
-      "safetyNotes": "只读分析与内存预览；本版本不保存或写入任何产物。"
+      "safetyNotes": "采集与分析均为只读；只有你点击保存时，才会把当次采集到的模型写入 architecture/ 下你指定的路径，且写入前会先展示目标路径与当前状态。"
     },
     "en": {
       "name": "Architecture Visualization",
       "description": "Evidence-backed architecture understanding, impact analysis, and architecture health for complex repositories.",
-      "safetyNotes": "Read-only analysis and in-memory previews; this version does not save or write artifacts."
+      "safetyNotes": "Collection and analysis stay read-only; a collected model is written only when you ask for it, only under architecture/, and only after the target path and its current state have been shown."
     }
   },
   "main": "main.js",
@@ -161,9 +161,10 @@
       { "key": "maxFiles", "title": "Maximum files per analysis", "type": "number", "default": 500 }
     ]
   },
-  "permissions": ["ui.panel", "ui.view", "agent.prompt.inject", "agent.tool.register", "agent.extension", "fs.read"],
+  "permissions": ["ui.panel", "ui.view", "agent.prompt.inject", "agent.tool.register", "agent.extension", "fs.read", "fs.write", "clipboard.write"],
   "fs": {
-    "read": { "root": "workspace", "scope": ["**/*"] }
+    "read": { "root": "workspace", "scope": ["**/*"] },
+    "write": { "root": "workspace", "scope": ["architecture/**"] }
   },
   "engines": { "piDesktop": ">=0.15.4" },
   "activationEvents": ["onCommand:architecture-visualization.open", "onCommand:architecture-visualization.validate", "onCommand:architecture-visualization.collect"],

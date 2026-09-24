@@ -238,7 +238,7 @@ architecture/
 - 插件目录、Manifest、入口文件、面板入口和 13 个技能文件已经存在。
 - 内部工具名为 `architecture_validate`；宿主公开名自动添加插件命名空间（本会话目录为 `plugin_local_architecture_visualization_plugin_architecture_validate`）。此前要求内部名称加 `plugin_` 的判断错误，已纠正。
 - P0 时 `PluginCheck` 通过；文件数量随实现更新，以最新检查报告为准。宿主公开工具名按插件规范使用 `plugin_` 前缀，具体最终名称以实际宿主注册表为准。
-- 当前权限为 `ui.panel`、`agent.prompt.inject`、`agent.tool.register`、`agent.extension`、`fs.read`；保存功能实现前不申请 `fs.write`。`agent.extension` 已由用户在插件页显式授予。
+- 当前权限为 `ui.panel`、`agent.prompt.inject`、`agent.tool.register`、`agent.extension`、`fs.read`、`fs.write`（scope 限定 `architecture/**`）、`clipboard.write`。`fs.write` 与 `clipboard.write` 为 1.4.0 新增，由用户在插件页显式授予；`agent.extension` 同样已显式授予。
 - 已建立 [docs/host-compatibility.md](./docs/host-compatibility.md)；宿主版本 **0.15.4** 与 dev 插件注册状态已补录。宿主编译期 SDK/devkit 版本号无从取得（`engines.piDesktop` 只能声明下限）；宿主生命周期 A1–A12 与 13 个场景技能均已验证，见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 - P2 校验核心与只读入口正在实施；面板仍是占位界面。P1 宿主完整生命周期验证未完成，不把本地测试计作宿主验收。
 
@@ -434,3 +434,20 @@ architecture/
 - 实现后：运行相关最小测试，重新读取关键区段，确认无旧工具名或越界路径。
 - 阶段门：运行 `PluginCheck`；若涉及打包，再运行 `PluginPack`。
 - 交付时：记录已验证、未验证、警告、错误码、产物路径和下一阶段前置条件。
+
+## 1.4.0 追加：面板保存采集模型（2026-09-24，用户授权 A）
+
+外部评审（ChatGPT）指出"一键 Analyze Project"应是"自动保存 ↓ 打开架构图"，而插件只做到内存。用户选择方案 A：授权 `fs.write`，scope 限定 `architecture/**`。
+
+目标：
+
+1. 面板新增 `architecture.save` 通道；不带 `decision` 时只做规划，不写任何字节。
+2. 规划返回目标路径、`targetState`（`missing`/`present`/`unknown`）、目标字节数、内容寻址快照路径、以及新旧两边的节点/关系/证据数。
+3. 三种决策：`create`（目标不存在才写）、`snapshot`（内容寻址、幂等、永不覆盖）、`overwrite`（唯一允许替换已有文件的动作，目标无法 inspect 时拒绝）。
+4. 每个决策在写入时重新 `stat`；面板展示的计划不背着过期结论。
+5. 主进程重新校验模型，结构性不合格返回 `INVALID_MODEL`，一个字节都不写。
+6. 写入后按预期字节数复核，不符返回 `WRITE_UNVERIFIED`，不报成已保存。
+7. 写入标准路径后面板立即从磁盘重新载入，来源标记改为"来自文件 …"。
+8. `manifest.fs.write = {root:"workspace", scope:["architecture/**"]}`；顺带补上 1.3.0 遗漏的 `clipboard.write`。
+
+退出标准：`architecture/**` 之外的路径一个字节都写不到；已有文件在用户显式点"覆盖写入"前不会被替换；同一内容的快照不会写第二次；任何拒绝、截断或复核失败都带稳定错误码返回。真实宿主确认记为 A15。

@@ -5,6 +5,7 @@ const { createHealthTool, executeHealth, HEALTH_TOOL } = require('./src/host/hea
 const { exportPreview } = require('./src/core/export-preview.js');
 const { collectModel } = require('./src/collectors/index.js');
 const { createHostSource } = require('./src/host/fs-source.js');
+const { planModelSave, applyModelSave, SAVE_DECISIONS, DEFAULT_MODEL_PATH } = require('./src/host/save-model.js');
 
 const VALIDATE_TOOL = 'architecture_validate';
 const COLLECT_TOOL = 'architecture_collect';
@@ -31,6 +32,23 @@ const PANEL_ANALYSIS_CHANNELS = Object.freeze({
 function readHost() {
   return { fs: { stat: (path) => pi.fs.stat(path), readText: (path) => pi.fs.readText(path) } };
 }
+const SAVE_CHANNEL = 'architecture.save';
+
+// Writing needs one more permission than reading, so the call stays visible at
+// the entry point rather than hiding inside the shared module.
+function writeHost() {
+  return {
+    fs: {
+      stat: (path) => pi.fs.stat(path),
+      readText: (path) => pi.fs.readText(path),
+      writeText: (path, content) => pi.fs.writeText(path, content),
+    },
+  };
+}
+
+// The panel addresses one channel more than the analysis tools do: saving is
+// not an agent tool, because no tool schema carries a whole model.
+const PANEL_CHANNELS = Object.freeze([...Object.keys(PANEL_ANALYSIS_CHANNELS), SAVE_CHANNEL].sort());
 
 // This plugin budgets its own collection responses, independently of host import limits.
 const MAX_SUMMARY_BYTES = 240 * 1024;
@@ -247,7 +265,23 @@ async function onUnload() {
   if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'Plugin cleanup failed');
 }
 
+// Saving is reachable only from the panel: no agent tool schema carries a whole
+// model, so the one write this plugin performs has no agent entry point.
+async function saveFromPanel(payload) {
+  const request = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
+  if (!request || Object.keys(request).some((key) => key !== 'model' && key !== 'path' && key !== 'decision')) {
+    return { ok: false, error: { code: 'invalid_option', message: 'Save accepts the model, an optional target path and an optional decision.' } };
+  }
+  if (request.decision !== undefined && !SAVE_DECISIONS.includes(request.decision)) {
+    return { ok: false, error: { code: 'invalid_option', message: 'A save decision must be create, snapshot or overwrite.' } };
+  }
+  const path = request.path === undefined ? DEFAULT_MODEL_PATH : request.path;
+  if (request.decision === undefined) return planModelSave(writeHost(), { model: request.model, path });
+  return applyModelSave(writeHost(), { model: request.model, path, decision: request.decision });
+}
+
 async function onPanelInvoke(channel, payload) {
+  if (channel === SAVE_CHANNEL) return saveFromPanel(payload);
   const name = PANEL_ANALYSIS_CHANNELS[channel];
   if (!name) {
     return { ok: false, error: { code: 'unsupported_input', message: 'This panel operation is not available.' } };
@@ -297,6 +331,6 @@ async function onPanelInvoke(channel, payload) {
 // `summarize` and the budget constants are exported so the response bounding
 // can be tested without a host; the entry points stay the only `pi` callers.
 module.exports = {
-  onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS,
+  onLoad, onUnload, onPanelInvoke, PANEL_ANALYSIS_CHANNELS, PANEL_CHANNELS, SAVE_CHANNEL,
   summarize, MAX_SUMMARY_BYTES, MAX_SUMMARY_NODES, MAX_SUMMARY_EDGES, MAX_SUMMARY_ENTRIES,
 };

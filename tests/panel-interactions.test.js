@@ -211,7 +211,7 @@ test('panel probes the collector before any model is loaded and keeps blind spot
   assert.equal(elements.get('collect-status').dataset.kind, 'ready');
   assert.ok(containsText(elements.get('collect-results'), 'config/jobs.yml'));
   assert.ok(containsText(elements.get('collect-results'), 'unsupported_input'));
-  assert.ok(containsText(elements.get('collect-results'), '没有写入磁盘'));
+  assert.ok(containsText(elements.get('collect-results'), '采集过程不写入磁盘'));
   assert.ok(containsText(elements.get('collect-results'), '仅显示前 24') === false);
 
   // A non-positive file budget is refused locally instead of being guessed.
@@ -350,4 +350,133 @@ test('a refused evidence open is reported, not silently ignored', async () => {
   assert.ok(containsText(elements.get('status'), 'PERMISSION_DENIED'));
   // The evidence row stays on screen so the claim can still be checked by hand.
   assert.ok(findByClass(elements.get('detail-body'), 'evidence-open'));
+});
+
+test('collecting reveals the save block, and a create goes through the host bridge', async () => {
+  const collectedModel = JSON.parse(JSON.stringify(model));
+  const counts = { nodes: collectedModel.nodes.length, edges: collectedModel.edges.length, evidence: collectedModel.evidence.length };
+  const plan = {
+    path: 'architecture/model.json', targetState: 'missing', targetBytes: null, action: 'create',
+    snapshotPath: `architecture/snapshots/${'a'.repeat(64)}.json`, snapshotPresent: false, new: counts, existing: null,
+  };
+  const saved = {
+    decision: 'create', path: 'architecture/model.json', targetState: 'missing', targetBytes: null,
+    new: counts, existing: null, written: true, alreadyPresent: false, bytes: 4096, verified: true,
+  };
+  const harness = createPanelHarness((channel, payload) => {
+    if (channel === 'architecture.collect') {
+      return { ok: true, coverage: { complete: true, filesListed: 4, filesScanned: 4, filesSkipped: 0, adapters: [] }, counts, unresolved: [], diagnostics: [], model: collectedModel };
+    }
+    if (channel === 'architecture.save') return payload.decision === undefined ? { ok: true, save: plan } : { ok: true, save: saved };
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(collectedModel), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(collectedModel);
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+
+  // The save block appears with the collected model and asks the host what the
+  // target looks like before any write is offered.
+  assert.equal(elements.get('save').hidden, false, 'collecting must reveal the save block');
+  assert.equal(elements.get('save-path').value, 'architecture/model.json');
+  assert.equal(elements.get('save-state').dataset.kind, 'ready');
+  assert.ok(containsText(elements.get('save-state'), '该路径不存在'));
+  assert.equal(elements.get('save-create').hidden, false, 'a missing target offers a create');
+  assert.ok(containsText(elements.get('save-create'), 'architecture/model.json'));
+  assert.equal(elements.get('save-overwrite').hidden, true, 'there is nothing to overwrite yet');
+  assert.equal(elements.get('save-snapshot').hidden, true);
+
+  const planned = calls.find((call) => call.channel === 'architecture.save');
+  assert.ok(planned, 'the panel must ask for a plan first');
+  assert.equal(planned.payload.decision, undefined, 'a plan request must not name a decision');
+  assert.equal(planned.payload.path, 'architecture/model.json');
+  assert.equal(planned.payload.model.schemaVersion, 1);
+
+  elements.get('save-create').dispatch('click');
+  await settle();
+  const applied = calls.filter((call) => call.channel === 'architecture.save');
+  assert.equal(applied.length, 2);
+  assert.equal(applied[1].payload.decision, 'create');
+  assert.equal(applied[1].payload.path, 'architecture/model.json');
+  assert.ok(containsText(elements.get('save-results'), '已写入'));
+  assert.ok(containsText(elements.get('save-results'), '4096'));
+
+  // Writing the standard path closes the loop: the model is re-read from disk
+  // and the panel stops treating it as an unsaved scan.
+  assert.equal(elements.get('model-source').textContent, '来自文件 architecture/model.json');
+  assert.equal(elements.get('save').hidden, true, 'a saved model no longer needs the save block');
+  assert.equal(elements.get('status').dataset.kind, 'ready');
+});
+
+test('an existing target hides create and offers a snapshot and an explicit overwrite', async () => {
+  const collectedModel = JSON.parse(JSON.stringify(model));
+  const counts = { nodes: collectedModel.nodes.length, edges: collectedModel.edges.length, evidence: collectedModel.evidence.length };
+  const snapshotPath = `architecture/snapshots/${'b'.repeat(64)}.json`;
+  const harness = createPanelHarness((channel, payload) => {
+    if (channel === 'architecture.collect') {
+      return { ok: true, coverage: { complete: true, filesListed: 4, filesScanned: 4, filesSkipped: 0, adapters: [] }, counts, unresolved: [], diagnostics: [], model: collectedModel };
+    }
+    if (channel === 'architecture.save' && payload.decision === undefined) {
+      return { ok: true, save: { path: payload.path, targetState: 'present', targetBytes: 3000, action: 'recheck', snapshotPath, snapshotPresent: false, new: counts, existing: { readable: true, valid: true, nodes: 3, edges: 2, evidence: 3 } } };
+    }
+    if (channel === 'architecture.save') {
+      const isOverwrite = payload.decision === 'overwrite';
+      return { ok: true, save: { decision: payload.decision, path: isOverwrite ? payload.path : snapshotPath, targetState: 'present', targetBytes: 3000, new: counts, existing: { readable: true, valid: true, nodes: 3, edges: 2, evidence: 3 }, written: isOverwrite, alreadyPresent: false, bytes: isOverwrite ? 4200 : null, verified: isOverwrite } };
+    }
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+
+  assert.equal(elements.get('save-state').dataset.kind, 'warning');
+  assert.ok(containsText(elements.get('save-state'), '该路径已有文件'));
+  assert.ok(containsText(elements.get('save-state'), '现有模型：3 节点 / 2 关系 / 3 证据'));
+  assert.equal(elements.get('save-create').hidden, true, 'an existing target must not offer a blind create');
+  assert.equal(elements.get('save-snapshot').hidden, false);
+  assert.equal(elements.get('save-overwrite').hidden, false);
+
+  // A snapshot leaves the standard path alone, so the panel keeps treating the
+  // scan as unsaved instead of pretending a file changed.
+  elements.get('save-snapshot').dispatch('click');
+  await settle();
+  const applied = calls.filter((call) => call.channel === 'architecture.save').at(-1);
+  assert.equal(applied.payload.decision, 'snapshot');
+  assert.ok(containsText(elements.get('save-results'), 'snapshots/'));
+  assert.equal(elements.get('model-source').textContent, '来自本次采集（未落盘）');
+});
+
+test('a refused save is reported and the model stays in memory', async () => {
+  const collectedModel = JSON.parse(JSON.stringify(model));
+  const counts = { nodes: collectedModel.nodes.length, edges: collectedModel.edges.length, evidence: collectedModel.evidence.length };
+  const harness = createPanelHarness((channel, payload) => {
+    if (channel === 'architecture.collect') {
+      return { ok: true, coverage: { complete: true, filesListed: 4, filesScanned: 4, filesSkipped: 0, adapters: [] }, counts, unresolved: [], diagnostics: [], model: collectedModel };
+    }
+    if (channel === 'architecture.save' && payload.decision === undefined) {
+      return { ok: true, save: { path: payload.path, targetState: 'present', targetBytes: 3000, action: 'recheck', snapshotPath: `architecture/snapshots/${'c'.repeat(64)}.json`, snapshotPresent: false, new: counts, existing: { readable: true, valid: true, nodes: 3, edges: 2, evidence: 3 } } };
+    }
+    if (channel === 'architecture.save') return { ok: false, error: { code: 'PERMISSION_DENIED', message: 'The host could not write the model file.' } };
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+
+  elements.get('collect-form').dispatch('submit');
+  await settle();
+  elements.get('save-overwrite').dispatch('click');
+  await settle();
+
+  assert.equal(calls.filter((call) => call.channel === 'architecture.save').length, 2);
+  assert.equal(elements.get('save-state').dataset.kind, 'error');
+  assert.ok(containsText(elements.get('save-state'), 'PERMISSION_DENIED'));
+  assert.ok(containsText(elements.get('save-results'), '未完成的保存'));
+  // Nothing was written, so the collected model is still the active one and the
+  // write buttons are withdrawn rather than left looking available.
+  assert.equal(elements.get('model-source').textContent, '来自本次采集（未落盘）');
+  assert.equal(elements.get('save-create').hidden, true);
+  assert.equal(elements.get('save-overwrite').hidden, true);
 });

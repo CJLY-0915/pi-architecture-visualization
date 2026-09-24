@@ -29,7 +29,7 @@
 | 不是 | 为什么 |
 | --- | --- |
 | 不是渲染器 | 宿主没有 Structurizr/Graphviz/Draw.io 渲染栈。`.dsl`/`.dot`/`.drawio` 是**文本产物**，要真图必须送外部工具。面板里的导出预览是内存只读文本，不保存、不下载 |
-| 不是写入工具 | 不申请 `fs.write`。宿主 `pi.fs.writeText` 是直接覆盖，没有原子替换/CAS/排他创建，所以插件只做"保存规划"（`architecture_snapshot_plan` 输出内容地址路径），不写真文件 |
+| 不是自动写入工具 | 不自动写任何东西。宿主 `pi.fs.writeText` 是直接覆盖，没有原子替换/CAS/排他创建，所以写入前重新确认目标状态、写入后复核字节数；`architecture_snapshot_plan` 仍然只做规划，不写文件 |
 | 不是发现引擎 | `architecture_collect` 是**证据交叉核对**，不是系统枚举。动态 `import()`/`require()`、反射派发、调度表、写在外面的直接写者——它一个都找不到，并且会把找到的盲区报成 `unsupported_input` 诊断 |
 | 不是 Git 工具 | 不读 Git、不推断分支、不判断新鲜度。`architecture_compare` 只比较两个模型文件，`evidenceFreshness` 恒为 `unknown` |
 | 不是完整 C4 工具链 | 有层级切分，没有 C4 渲染。L4（Code）刻意不切，模块密度图归 `graphviz` |
@@ -106,6 +106,14 @@
 **得不到**：Git 推断。没有 change source 时返回 `change_source_unavailable`，不猜分支。
 
 ---
+### 场景七："把这个仓库的架构固化成一份能进 Git 的模型"
+
+```
+面板：采集并生成模型 → 保存这份模型 → 确认目标状态 → 创建
+```
+**得到**：一次点击完成"扫描 → 生成 → 落盘 → 重新载入"。保存前面板先说明目标路径、该路径当前是否存在、以及新旧两边的节点/关系/证据数；目标已存在时只给"另存为快照"（`architecture/snapshots/<sha256>.json`，内容寻址、永不覆盖）和显式的"覆盖写入"，不会静默替换。写入标准路径后面板立即从磁盘重新载入，来源标记从"来自本次采集（未落盘）"变成"来自文件 …"——这份模型从此可以被 `architecture_query`/`architecture_impact`/`architecture_health` 按路径读取，也可以进 Git 让下次比较有基线。
+**得不到**：自动写入。插件不监听文件变化、不定时重建、不覆盖你没让它覆盖的文件；宿主 `pi.fs.writeText` 没有原子 rename 和 CAS，所以写入范围被压在 `architecture/**`，并且写入后按预期字节数复核，不符就报 `WRITE_UNVERIFIED` 而不是宣称已保存。
+
 
 ## 三、为工程实践带来的实际提升
 
@@ -139,11 +147,11 @@
 
 - **之前**：README 写 254、PLAN 写 251、host 记录写 223；模型 `sourceRevision` 落后 HEAD；"首个三平台 CI 结果未取得"在 CI 已全绿后还挂着。
 - **之后**：用例数、文件数、版本号、CI 状态在各处一致，且由测试锁定（manifest 与 package 版本一致、打包范围恰好 40 文件）。
-- **可验证**：`node --test tests/*.test.js` 273/273；`git grep` 搜不到过期数字。
+- **可验证**：`node --test tests/*.test.js` 303/303；`git grep` 搜不到过期数字。
 
 ### 6. 安全边界是声明出来的，不是猜的
 
-- 只申请 `fs.read`，不申请 `fs.write`；保存只做规划不做写入。
+- 只在面板显式点击时写入，且仅限 `manifest.fs.write.scope` 声明的 `architecture/**`；`fs.delete`、网络、命令执行一概不申请。
 - 读取前 2 MiB 限制、响应 240 KiB 预算、逐列表上限——超限**报告**，不静默成功。
 - `coverage.complete=false` 就是 `false`；`filesSkipped` 落进模型，只读模型的消费者能看出有文件被扣留。
 - PNG 明确报告"需要渲染栈，不伪造二进制"。
@@ -228,5 +236,5 @@
 | A4 命令注销 | 只有单测覆盖 | 未在真实宿主确认卸载后命令消失 |
 | 采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断 | 已记录，未扩适配器 | 写进 `legacy-inventory-sparse.md`；不凭空实现解析器 |
 | Java/Maven/Gradle 依赖采集 | 只保证不静默忽略 | 明确报 `unsupported_input`，不产出节点或边 |
-| 实际保存/发布 | 宿主缺原子发布原语 | 只做规划，不写真文件 |
+| 实际保存/发布 | 宿主缺原子发布原语 | **1.4.0 已按用户授权 A 落地**：`architecture.save` 面板通道在 `architecture/**` 内写入，写入前展示目标状态、写入后复核字节数；仍不覆盖已有文件，除非用户显式点"覆盖写入" |
 | L4 Code 层 | 刻意不切 | 模块密度归 `graphviz` |

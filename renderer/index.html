@@ -120,6 +120,23 @@
     .collect-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; }
     .collect-form .field { width: 100%; }
     .collect-form .button { min-height: 36px; justify-self: start; }
+    .save-block { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .save-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+    .save-head h3 { margin: 0; font-size: 13px; }
+    .save-hint { margin: 0; color: var(--faint); font-size: 11px; line-height: 1.5; }
+    .save-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+    .save-form .field { width: 100%; }
+    .save-form .button { min-height: 36px; }
+    .save-state { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid var(--line-strong); background: var(--paper-inset); color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .save-state[data-kind="loading"] { border-left-color: var(--evidence); color: #b7dae4; }
+    .save-state[data-kind="ready"] { border-left-color: var(--ok); color: #b7c9c0; }
+    .save-state[data-kind="warning"] { border-left-color: var(--amber); color: #e9ca90; background: #17140f; }
+    .save-state[data-kind="error"] { border-left-color: var(--danger); color: #f0b6b6; background: #1b1218; }
+    .save-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .save-actions .button { min-height: 36px; }
+    .button.danger { border-color: #70313a; background: transparent; color: #f0b6b6; }
+    .button.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); background: #1b1218; }
+    @media (max-width: 660px) { .save-form { grid-template-columns: 1fr; } }
     .detail-id { margin: 5px 0 18px; color: var(--faint); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
     .evidence-item { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
     .evidence-open { flex: 0 0 auto; min-height: 24px; padding: 0 9px; font-size: 11px; }
@@ -184,7 +201,7 @@
         <h1>架构档案台</h1>
         <p class="lede">在当前工作区中只读打开模型，按节点、关系与证据线索进行审阅。</p>
       </div>
-      <span class="read-only">只读模式 · 不保存</span>
+      <span class="read-only">只读分析 · 写入需你确认</span>
     </header>
 
     <form id="load-form" class="workspace-bar" novalidate>
@@ -192,17 +209,30 @@
       <input id="model-path" class="path-input" name="modelPath" value="architecture/model.json" autocomplete="off" spellcheck="false" aria-describedby="path-help" />
       <button class="button primary" id="load-button" type="submit">读取模型</button>
     </form>
-    <p id="path-help" class="workspace-note">路径相对于已打开的工作区；面板不保存模型文件——采集生成的模型只在内存，读取则只读已有文件。</p>
+    <p id="path-help" class="workspace-note">路径相对于已打开的工作区。读取始终只读；只有你在“保存这份模型”里点了写入按钮，才会把当次采集的模型写到 architecture/ 下你指定的路径。</p>
     <section id="collect" aria-labelledby="collect-heading">
-      <header class="collect-header"><div><h2 id="collect-heading">采集并生成模型</h2><p>扫描当前工作区并当场生成一份架构模型，只读、不写入任何文件。生成后下方阅读器立即可用：浏览节点、查图、跑影响、看健康、导出 JSON。模型只在内存，关闭面板即消失。</p></div><span class="read-only">不写入</span></header>
+      <header class="collect-header"><div><h2 id="collect-heading">采集并生成模型</h2><p>扫描当前工作区并当场生成一份架构模型，只读、不写入任何文件。生成后下方阅读器立即可用：浏览节点、查图、跑影响、看健康、导出 JSON。模型先只在内存；需要它长期可用时，用下面的“保存这份模型”写进工作区。</p></div><span class="read-only">只读扫描</span></header>
       <form id="collect-form" class="collect-form" novalidate>
         <input id="collect-roots" class="field" placeholder="范围根目录（留空 = 整个工作区）" aria-label="采集范围根目录" />
         <input id="collect-max" class="field" type="number" min="1" placeholder="最多文件数（默认 500）" aria-label="采集最多文件数" />
         <button class="button secondary" id="collect-submit" type="submit">采集并生成模型</button>
       </form>
-      </form>
       <div id="collect-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未采集。点“采集并生成模型”即可，无需先在会话里让 agent 建模。</div>
       <div id="collect-results" class="analysis-results" aria-live="polite"></div>
+      <div id="save" class="save-block" hidden>
+        <div class="save-head"><h3 id="save-heading">保存这份模型</h3><p class="save-hint">采集只产生内存模型，关闭面板即消失。要让它长期可用，就把它写进工作区——写入前先确认目标路径与当前状态，默认绝不覆盖已有文件。</p></div>
+        <div class="save-form">
+          <input id="save-path" class="field" name="savePath" value="architecture/model.json" autocomplete="off" spellcheck="false" aria-label="模型保存路径" aria-describedby="save-hint" />
+          <button id="save-check" class="button secondary" type="button">确认目标状态</button>
+        </div>
+        <p id="save-state" class="save-state" data-kind="idle" role="status" aria-live="polite">尚未确认目标状态。</p>
+        <div id="save-actions" class="save-actions">
+          <button id="save-create" class="button primary" type="button" hidden>创建</button>
+          <button id="save-snapshot" class="button secondary" type="button" hidden>另存为快照</button>
+          <button id="save-overwrite" class="button danger" type="button" hidden>覆盖写入</button>
+        </div>
+        <div id="save-results" class="analysis-results" aria-live="polite"></div>
+      </div>
     </section>
 
     <section id="status" class="status" data-kind="idle" aria-live="polite" aria-atomic="true">
@@ -249,7 +279,7 @@
         <ul id="unknown-list" class="unknown-list"></ul>
       </section>
       <section class="analysis" aria-labelledby="analysis-heading">
-        <header><div><h2 id="analysis-heading">受限分析</h2><p>执行现有只读分析；预算截断、停止原因与证据不确定性会原样保留。</p></div><span class="read-only">不写入</span></header>
+        <header><div><h2 id="analysis-heading">受限分析</h2><p>执行现有只读分析；预算截断、停止原因与证据不确定性会原样保留。</p></div><span class="read-only">只读</span></header>
         <div class="analysis-grid">
           <form id="query-form" class="analysis-form"><h3>图查询</h3><p>路径与邻居模式使用起点/目标 ID；路径模式另需终点 ID。</p><select id="query-mode" class="field" aria-label="查询模式"><option value="filter">筛选全部节点</option><option value="neighbours">相邻节点</option><option value="paths">节点路径</option><option value="cycles">完整环路</option></select><input id="query-targets" class="field" placeholder="起点或目标 ID（逗号分隔）" aria-label="查询起点或目标" /><input id="query-to" class="field" placeholder="终点 ID（仅路径）" aria-label="查询终点" /><button class="button secondary" type="submit">执行图查询</button></form>
           <form id="export-form" class="analysis-form"><h3>内存导出预览</h3><p>不下载、不保存。PNG 在零依赖边界中仅报告不支持原因。C4 层级由 <code>parentId</code> 链切出，与浮动/停靠形态无关。</p><select id="export-format" class="field" aria-label="导出预览格式"><option value="mermaid">Mermaid</option><option value="dot">DOT</option><option value="structurizr">Structurizr DSL（拍平）</option><option value="c4">C4 层级（Structurizr DSL）</option><option value="drawio">Draw.io XML</option><option value="markdown">Markdown</option><option value="json">JSON</option><option value="svg">SVG</option><option value="png">PNG（受限）</option><option value="html">离线 HTML</option></select><input id="export-focus" class="field" placeholder="C4 焦点节点 ID（留空取首个 system）" aria-label="C4 焦点节点 ID" /><select id="export-level" class="field" aria-label="C4 层级"><option value="1">L1 系统上下文</option><option value="2">L2 容器</option><option value="3">L3 组件</option></select><button class="button secondary" type="submit">生成内存预览</button></form>
@@ -279,7 +309,8 @@
         search: $("search"), type: $("type-filter"), statusFilter: $("state-filter"), confidence: $("confidence-filter"), list: $("node-list"),
         detail: $("detail-body"), detailSubtitle: $("detail-subtitle"), unknowns: $("unknowns"), unknownCount: $("unknown-count"), unknownList: $("unknown-list"),
       queryForm: $("query-form"), queryMode: $("query-mode"), queryTargets: $("query-targets"), queryTo: $("query-to"), impactForm: $("impact-form"), impactTargets: $("impact-targets"), impactDirection: $("impact-direction"), compareForm: $("compare-form"), compareBefore: $("compare-before"), compareAfter: $("compare-after"), exportForm: $("export-form"), exportFormat: $("export-format"), exportFocus: $("export-focus"), exportLevel: $("export-level"), healthForm: $("health-form"), analysisStatus: $("analysis-status"), analysisResults: $("analysis-results"),
-        collectForm: $("collect-form"), collectRoots: $("collect-roots"), collectMax: $("collect-max"), collectSubmit: $("collect-submit"), collectStatus: $("collect-status"), collectResults: $("collect-results")
+        collectForm: $("collect-form"), collectRoots: $("collect-roots"), collectMax: $("collect-max"), collectSubmit: $("collect-submit"), collectStatus: $("collect-status"), collectResults: $("collect-results"),
+        save: $("save"), savePath: $("save-path"), saveCheck: $("save-check"), saveState: $("save-state"), saveCreate: $("save-create"), saveSnapshot: $("save-snapshot"), saveOverwrite: $("save-overwrite"), saveResults: $("save-results")
       };
       function setCollectStatus(kind, message) { ui.collectStatus.dataset.kind = kind; ui.collectStatus.textContent = message; }
       function renderCollect(result) {
@@ -297,7 +328,7 @@
         const blind = array(result.unresolved).concat(array(result.diagnostics)).map((item) => `${item.code} · ${item.path || "（无路径）"}${item.message ? ` — ${item.message}` : ""}`);
         ui.collectResults.append(resultCard("采集器盲区与诊断", blind.length ? blind : ["本次采集未报告未解析项或诊断。"], blind.length ? "warning" : ""));
         if (result.truncated) ui.collectResults.append(resultCard("结果上限", [result.truncated, result.truncatedNote || ""], "warning"));
-        ui.collectResults.append(resultCard("边界", ["模型只在内存：没有写入磁盘。下方阅读器已载入这份采集结果，可直接浏览、查询、影响分析与导出；关闭面板后不保留。", "证据内容与源文件真实性未重新验证。", "要长期保留，请把导出预览的 JSON 存成 architecture/model.json 后重新读取。"], "warning"));
+        ui.collectResults.append(resultCard("边界", ["采集过程不写入磁盘。下方阅读器已载入这份采集结果，可直接浏览、查询、影响分析与导出。", "证据内容与源文件真实性未重新验证。", "要让这份模型长期可用，用下面的“保存这份模型”写进工作区；写入前会先展示目标路径与当前状态。"], "warning"));
         setCollectStatus("ready", "采集完成（只读）。摘要与盲区在上方；完整模型已载入下方阅读器，可直接查询与导出。");
       }
       // A collected model becomes the active one, so a fresh scan is browsable
@@ -310,7 +341,90 @@
         state.model = result.model; state.modelSource = "collected"; state.selectedId = null; ui.modelSource.textContent = "来自本次采集（未落盘）";
         displayModel();
         setCollectStatus("ready", "采集完成（只读）。摘要与盲区在上方；完整模型已载入下方阅读器，可直接查询与导出。");
+        // A collected model lives only in memory, so the save block appears
+        // with it and asks the host what the target path looks like before any
+        // write is offered at all.
+        ui.save.hidden = false;
+        ui.savePath.value = DEFAULT_PATH;
+        void checkSaveTarget();
       }
+      // The one write this plugin performs. The panel states the target before
+      // it offers a button: which path, whether something is already there, and
+      // the counts on both sides. `create` disappears the moment a file exists,
+      // and `overwrite` is the only action allowed to replace one.
+      const SAVE_CHANNEL = "architecture.save";
+      function setSaveStatus(kind, message) { ui.saveState.dataset.kind = kind; ui.saveState.textContent = message; }
+      function saveRequest(extra) { return { ...extra, model: state.model }; }
+      function countsText(counts) { return counts ? `${counts.nodes} 节点 / ${counts.edges} 关系 / ${counts.evidence} 证据` : "未知"; }
+      function targetStateText(value) { return value === "missing" ? "不存在" : value === "present" ? "已存在" : "无法确认"; }
+      function showSaveButton(button, visible, label) { button.hidden = !visible; if (label) button.textContent = label; }
+      function setSaveBusy(busy) { [ui.saveCheck, ui.saveCreate, ui.saveSnapshot, ui.saveOverwrite].forEach((button) => { button.disabled = busy; }); }
+      function renderSavePlan(plan) {
+        const present = plan.targetState === "present";
+        const lines = [`目标路径：${plan.path}（当前${targetStateText(plan.targetState)}${present ? `，${plan.targetBytes} 字节` : ""}）`];
+        if (plan.targetState === "missing") lines.push("该路径不存在，可以安全创建。");
+        else if (present) lines.push("该路径已有文件，默认不动它；只有点“覆盖写入”才会替换。");
+        else lines.push("无法确认该路径当前状态，因此不提供创建与覆盖；可改用内容寻址快照。");
+        lines.push(`本次模型：${countsText(plan.new)}`);
+        if (plan.existing && plan.existing.readable && plan.existing.valid) lines.push(`现有模型：${countsText(plan.existing)}`);
+        else if (plan.existing && plan.existing.readable) lines.push("现有文件可读但未通过结构校验；覆盖会用本次采集结果替换它。");
+        else if (plan.existing) lines.push("现有文件不可读或不是合法 JSON；覆盖会用本次采集结果替换它。");
+        lines.push(`快照路径（内容寻址）：${plan.snapshotPath}${plan.snapshotPresent ? "（已存在，同样内容不会重复写入）" : ""}`);
+        setSaveStatus(present || plan.targetState === "unknown" ? "warning" : "ready", lines.join(" "));
+        showSaveButton(ui.saveCreate, plan.targetState === "missing", `创建 ${plan.path}`);
+        showSaveButton(ui.saveSnapshot, plan.targetState !== "missing", `另存为快照 ${plan.snapshotPath}`);
+        showSaveButton(ui.saveOverwrite, present, `覆盖写入 ${plan.path}`);
+      }
+      function renderSaveFailure(result) {
+        [ui.saveCreate, ui.saveSnapshot, ui.saveOverwrite].forEach((button) => { button.hidden = true; });
+        const error = result && result.error ? `${result.error.code || "save_failed"}：${result.error.message || "保存没有完成。"}` : "保存调用失败，未写入任何文件。";
+        ui.saveResults.replaceChildren(resultCard("未完成的保存", [error], "error"));
+        setSaveStatus("error", error);
+      }
+      async function checkSaveTarget() {
+        if (!state.model) { setSaveStatus("error", "请先采集或读取一个模型。"); return; }
+        const path = ui.savePath.value.trim();
+        if (!path) { setSaveStatus("error", "请填写要保存的工作区相对路径；不会猜测目标。"); return; }
+        ui.saveCheck.disabled = true;
+        setSaveStatus("loading", "正在确认目标状态；这一步不写入…");
+        try {
+          const result = await bridgeInvoke(SAVE_CHANNEL, saveRequest({ path }));
+          if (!result || result.ok !== true || !result.save) { renderSaveFailure(result); return; }
+          renderSavePlan(result.save);
+        } catch (error) {
+          renderSaveFailure({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } });
+        } finally { ui.saveCheck.disabled = false; }
+      }
+      async function runSave(decision) {
+        if (!state.model) { setSaveStatus("error", "请先采集或读取一个模型。"); return; }
+        const path = ui.savePath.value.trim();
+        if (!path) { setSaveStatus("error", "请填写要保存的工作区相对路径；不会猜测目标。"); return; }
+        setSaveBusy(true);
+        setSaveStatus("loading", decision === "overwrite" ? "正在覆盖写入；只写这一个文件…" : "正在写入；只写这一个文件…");
+        try {
+          const result = await bridgeInvoke(SAVE_CHANNEL, saveRequest({ path, decision }));
+          if (!result || result.ok !== true || !result.save) { renderSaveFailure(result); return; }
+          renderSaveResult(result.save);
+        } catch (error) {
+          renderSaveFailure({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } });
+        } finally { setSaveBusy(false); }
+      }
+      function renderSaveResult(save) {
+        const done = save.written || save.alreadyPresent;
+        const entries = [`决策：${save.decision}`, `实际路径：${save.path}`, `目标原有状态：${targetStateText(save.targetState)}`, `本次模型：${countsText(save.new)}`];
+        if (save.existing && save.existing.readable && save.existing.valid) entries.push(`被替换的模型：${countsText(save.existing)}`);
+        if (save.alreadyPresent) entries.push("该内容的快照已存在，未重复写入。");
+        else if (save.written) entries.push(`已写入 ${save.bytes} 字节${save.verified ? "，并已按预期大小复核。" : "（大小未复核）"}`);
+        else entries.push("未写入任何文件。");
+        ui.saveResults.replaceChildren(resultCard(done ? "保存完成" : "未写入", entries, done ? "" : "warning"));
+        if (save.written && save.decision !== "snapshot") { setSaveStatus("ready", `已写入 ${save.path}，正在从磁盘重新载入。`); void loadModel(save.path); }
+        else if (save.written) setSaveStatus("ready", `已写入快照 ${save.path}；标准路径未被改动。`);
+        else setSaveStatus("warning", `未写入：${save.path} 中已有相同内容的快照。`);
+      }
+      ui.saveCheck.addEventListener("click", () => { void checkSaveTarget(); });
+      ui.saveCreate.addEventListener("click", () => { void runSave("create"); });
+      ui.saveSnapshot.addEventListener("click", () => { void runSave("snapshot"); });
+      ui.saveOverwrite.addEventListener("click", () => { void runSave("overwrite"); });
       async function runCollect(event) {
         event.preventDefault();
         const request = { includeModel: true };
@@ -537,7 +651,7 @@
           let model;
           try { model = JSON.parse(raw); } catch (error) { setStatus("error", `JSON 损坏：${error.message || "无法解析文件内容"}`); return; }
           const problem = diagnose(model); if (problem) { setStatus("error", `结构无效：${problem} 面板仅呈现通过 v1 基础合同检查的模型。`); return; }
-          state.model = model; state.path = trimmed; state.modelSource = "file"; state.selectedId = null; ui.modelSource.textContent = `来自文件 ${trimmed}`; displayModel(); setStatus("ready", `已只读载入 ${trimmed}。可筛选节点并选择一项查看模型中记录的关联线索。`);
+          state.model = model; state.path = trimmed; state.modelSource = "file"; state.selectedId = null; ui.modelSource.textContent = `来自文件 ${trimmed}`; ui.save.hidden = true; displayModel(); setStatus("ready", `已只读载入 ${trimmed}。可筛选节点并选择一项查看模型中记录的关联线索。`);
         } catch (error) { setStatus("error", `${errorKind(error)}：${String(error.message || error)}`); }
         finally { setBusy(false); }
       }

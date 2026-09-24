@@ -2,7 +2,7 @@
 
 PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条结论都挂 `file:line` 出处和 `confirmed`/`inferred`/`assumed`/`unknown` 分级——查不到证据就明说不知道，不画成确认的框；采集器看不见的（动态 `import()`、字符串键派发、Java 构建文件）报 `unsupported_input`，不安静地产出一张看起来完整的空图。在这份模型之上做只读的查询、影响分析、健康检查与导出。
 
-仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main`；推送到 `main` 或开 PR 会触发三平台 CI）。版本 **1.2.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；完整定位、场景与价值论证见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
+仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main`；推送到 `main` 或开 PR 会触发三平台 CI）。版本 **1.4.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；完整定位、场景与价值论证见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
 
 ## 三个你马上能做的事
 
@@ -45,7 +45,7 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 | 接手一个没人懂的遗留系统 | 未知项优先的清单，开篇即未知项 |
 | 给我一份能自己改的图 | `.drawio`，非确认事实带三重标记 |
 
-面板最小三步：点"采集并生成模型"（无需任何前置模型，也无需先在会话里让 agent 建模）→ 模型当场载入下方阅读器，在节点列表里选一项看详情 → 在图查询或影响分析里提交一个节点 ID。模型只在内存，不写工作区；要长期保留就用导出预览的 JSON 存成 `architecture/model.json`，再走"读取模型"。已经有模型文件时，直接填路径点"读取模型"即可。导出预览只是内存文本：不保存、不下载、不写工作区。
+面板最小三步：点"采集并生成模型"（无需任何前置模型，也无需先在会话里让 agent 建模）→ 模型当场载入下方阅读器，在节点列表里选一项看详情 → 在图查询或影响分析里提交一个节点 ID。采集本身不写工作区；模型要长期保留，用在采集结果下方出现的"保存这份模型"——它先展示目标路径、该路径当前是否存在、以及新旧两边的节点/关系/证据数，再让你在三个动作里选："创建"（仅当目标不存在）、"另存为快照"（`architecture/snapshots/<sha256>.json`，内容寻址、永不覆盖）、"覆盖写入"（唯一会替换已有文件的动作）。写入标准路径后，面板立即从磁盘重新载入。已经有模型文件时，直接填路径点"读取模型"即可。导出预览只是内存文本，可复制到剪贴板，不下载、不写工作区。
 12 个场景技能：`system-modeler`、`flow-visualizer`、`dependency-impact-analyzer`、`deployment-topology-analyzer`、`evolution-planner`、`risk-quality-reviewer`、`legacy-system-visualizer`、`architecture-communicator`、`architecture-health`，以及 `c4model`/`graphviz`/`drawio` 三个输出格式基础技能。它们复用同一模型与证据规则，区别只在产出形状。
 
 ## 它为工程实践带来什么
@@ -57,14 +57,14 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 3. **C4**：只有一层能看 → 按 `parentId` 链切 L1/L2/L3，每个元素带 `type/status/confidence` 与模型 id。
 4. **可编辑交付物**：`inferred` 和 `confirmed` 的节点在图里长得一样 → 标签后缀、状态填充色、虚线轮廓三重标记。
 5. **文档数字**：各写各的 → 用例数、打包文件数、版本号由测试锁定。
-6. **安全边界**：靠猜 → 声明出来。只读、超限即报告、`coverage.complete=false` 就是 `false`、PNG 明确报告受限而不伪造二进制。
+6. **安全边界**：靠猜 → 声明出来。只读采集与分析、超限即报告、`coverage.complete=false` 就是 `false`、PNG 明确报告受限而不伪造二进制；唯一的写入限定在 `architecture/**`，且写入前先展示目标状态、默认不覆盖。
 
 ## 边界：它不是什么
 
 | 不是 | 为什么 |
 | --- | --- |
 | 不是渲染器 | 宿主没有 Structurizr/Graphviz/Draw.io 渲染栈；`.dsl`/`.dot`/`.drawio` 是文本产物，要真图送外部工具 |
-| 不是写入工具 | 不申请 `fs.write`；宿主缺原子发布原语，保存只做规划不写真文件 |
+| 不是自动写入工具 | 只在面板显式点击时写入，且仅限 `architecture/**`；宿主 `pi.fs.writeText` 没有原子 rename、没有 CAS，所以写入前重新确认目标状态、写入后按预期大小复核，不把结果谎报成已保存 |
 | 不是发现引擎 | `architecture_collect` 是证据交叉核对，不是系统枚举；找不到的会报告，不猜 |
 | 不是 Git 工具 | 不读 Git、不推断分支；`architecture_compare` 只比较两个模型文件 |
 | 不是完整 C4 工具链 | 有层级切分，没有 C4 渲染；L4（Code）刻意不切，模块密度归 `graphviz` |
@@ -75,7 +75,7 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 
 1. **加载**：作为 dev 插件从本目录加载，或安装 `.piplug`。开发前读 [docs/host-compatibility.md](./docs/host-compatibility.md)，确认当前宿主版本的 SDK、面板桥、Agent 工具和打包能力。
 2. **命令**：`Architecture: Open Workbench`（浮动面板）、`Architecture: Validate Model`（默认读 `architecture/model.json`）、`Architecture: Collect Current State`（扫描工作区）。
-3. **权限**：只申请 `fs.read`（工作区读）、`ui.panel`/`ui.view`（浮动面板与右侧停靠视图）、`agent.prompt.inject`/`agent.tool.register`/`agent.extension`（技能与工具注册）。不申请 `fs.write`、网络、删除、命令执行、剪贴板。新增权限必须回插件页审查，热重载不会自动带上。
+3. **权限**：申请 `fs.read`（工作区读）、`fs.write`（仅 `manifest.fs.write.scope` 声明的 `architecture/**`）、`clipboard.write`（复制导出预览）、`ui.panel`/`ui.view`（浮动面板与右侧停靠视图）、`agent.prompt.inject`/`agent.tool.register`/`agent.extension`（技能与工具注册）。不申请网络、删除、命令执行、剪贴板读取。新增权限必须回插件页审查，热重载不会自动带上；`fs.write` 属宿主高风险权限。
 4. **测试**：`npm test`（固定为 `node --test tests/*.test.js`；不要写成 `node --test tests`，本机 Node 会把目录当模块加载）。
 
 ## 工程参考（维护者向）
@@ -118,19 +118,19 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 
 ### 工作台与常驻规则
 
-- 面板只经 `window.pluginBridge.invoke` 访问 6 个固定通道（`architecture.query`/`architecture.impact`/`architecture.compare`/`architecture.exportPreview`/`architecture.health`/`architecture.collect`）以及宿主 `workspace.get`、`fs.stat`、`fs.readText`，不碰任意 Electron IPC，也不调用 Agent 工具注册表。`architecture.collect` 是引导探测：不依赖已载入的模型，只接受 `scopeRoots` 与 `maxFiles`，返回与命令/工具同一份有界摘要。宿主**没有**打开停靠视图的 API，命令因此保留为浮动面板入口。
+- 面板只经 `window.pluginBridge.invoke` 访问 7 个固定通道（`architecture.query`/`architecture.impact`/`architecture.compare`/`architecture.exportPreview`/`architecture.health`/`architecture.collect`/`architecture.save`）以及宿主 `workspace.get`、`fs.stat`、`fs.readText`、`fs.openDefault`、`fs.writeText`、`clipboard.writeText`，不碰任意 Electron IPC，也不调用 Agent 工具注册表。`architecture.save` 是唯一的写入入口，只从面板可达（没有任何 Agent 工具的 schema 带得了整个模型），且主进程在写入前重新校验模型、重新确认目标状态。宿主**没有**打开停靠视图的 API，命令因此保留为浮动面板入口。
 - 内存预览 10 种格式：Structurizr DSL、C4 层级 DSL、DOT、Mermaid、Draw.io XML、Markdown、JSON、SVG、PNG（明确报告受限）、离线 HTML。`c4` 按 `parentId` 链切层；Draw.io 对非 `confirmed`/`high` 的事实带标记；每个预览都带模型版本、范围、revision、生成时间、覆盖状态、图例和限制。
 - `extensions/workflow-rule.mjs` 刻意零依赖（无 import / fs / 网络 / 时钟 / 随机），由 `tests/agent-extension.test.js` 静态守卫。宿主用 `(acc,next)=>({...acc ?? {}, ...next})` 合并 handler 返回值，且返回的 `systemPrompt` 会**替换**整体提示，因此模块必须把 base 原样带上再拼接，追加以 `## Architecture Visualization` marker 判重。入口必须是 `.mjs`（`package.json` 为 `"type": "commonjs"`）。
 - manifest 必须给每条技能显式 `id`：宿主用文件基名派生技能 id，13 个 `SKILL.md` 会撞成同一个，只注册第一个。`agent.extension` 已由用户在插件页显式授予；dev 插件的权限天花板冻结在授权时刻。
 
 ### 质量门禁
 
-`node --test tests/*.test.js` 当前 270/270；三平台 CI 全绿；干净镜像 `PluginCheck` 无错误通过（运行时集合 40 文件，由 `tests/package-scope.test.js` 断言）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 14 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
+`node --test tests/*.test.js` 当前 303/303；三平台 CI 全绿；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件——新增 `src/host/save-model.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 
 ## 设计原则
 
 - 架构事实以 `architecture/model.json` 为准，图和报告是派生物。
 - 每个重要节点、关系、风险和决策都要能追溯到代码、配置、文档、测试或运行证据。
 - 当前状态、目标状态、运行观测、假设和未知项必须分开。
-- 当前版本完全只读：不申请或调用 `fs.write`、`fs.delete`、网络、剪贴板或命令执行。
+- 采集与分析保持只读；唯一的写入是面板"保存这份模型"，范围限定 `architecture/**`，写入前展示目标状态、写入后复核大小，默认不覆盖已有文件。不申请 `fs.delete`、网络、命令执行或剪贴板读取。
 - 不把 Draw.io、SVG、PNG 或手工导出图作为事实来源。

@@ -39,9 +39,10 @@ ChatGPT 关于生态与竞争的说法（CodeSee 已成熟、"插件中心很多
 | ① 一键 Analyze Project，隐藏 model.json | **已大体完成**。1.3.0 起面板"采集并生成模型"当场产出可浏览、可查询、可导出的模型，无需任何前置文件，也无需 agent | 首页仍以"读取模型"表单为主视觉，采集按钮在下方；README 仍以 `model.json` 为默认路径叙述 |
 | ② Interactive Graph | **未做**。插件自认"不是渲染器"，导出是文本产物 | 名字里有 Visualization，面板里却没有一张图。这是最明显的名实不符 |
 | ③ Evidence → Source | **部分**。节点详情已列 evidence（含 `path:line`），但不能打开文件 | **宿主 `fs.openDefault` 就在面板 bridge 白名单里**（`out/main/index.js:98146-98148`），且只需已有的 `fs.read`。这是最低成本的缺口 |
-| ④ Git Diff → Impact | **明确拒绝**（不读 Git、不推断分支） | 它说的"Analyze Current Changes"确实能让影响分析进入日常。但不读 Git 也可以做一半：接受显式文件列表 |
-| ⑤ Architecture Drift | **未做**。`architecture_compare` 只比两个模型文件 | 模型已有 `state: current/target` 字段，缺的是"声明 vs 实际"的对照入口 |
-| ⑦ 少加技能 | **认同**。13 个技能对普通用户已过载 | 不应再新增技能；应把前台概念压到四个 |
+| ④ 自动保存 + 打开架构图 | **1.4.0 已补齐**。`architecture.save` 面板通道：规划（目标路径、是否存在、新旧计数）→ `create`/`snapshot`/`overwrite` → 写入标准路径后立即从磁盘重新载入，来源标记改为"来自文件 …" | 仍不是"全自动"：插件不监听文件变化、不定时重建。理由是宿主 `pi.fs.writeText` 没有原子 rename/CAS，自动覆盖会毁掉人工补过的模型；改为"写入前明示、默认不覆盖、显式才替换" |
+| ⑤ Git Diff → Impact | **明确拒绝**（不读 Git、不推断分支） | 它说的"Analyze Current Changes"确实能让影响分析进入日常。但不读 Git 也可以做一半：接受显式文件列表 |
+| ⑥ Architecture Drift | **未做**。`architecture_compare` 只比两个模型文件 | 模型已有 `state: current/target` 字段，缺的是"声明 vs 实际"的对照入口 |
+| ⑧ 少加技能 | **认同**。13 个技能对普通用户已过载 | 不应再新增技能；应把前台概念压到四个 |
 
 ---
 
@@ -68,7 +69,7 @@ ChatGPT 关于生态与竞争的说法（CodeSee 已成熟、"插件中心很多
 
 ### 明确不做（以及为什么）
 
-- **申请 `fs.write` 自动保存模型**：宿主 `writeText` 是直接覆盖，会毁掉人工补过的模型。内容寻址快照方案已记录在 `architecture/decisions/no-safe-publish-primitive.md`，等授权且 scope 限定 `architecture/snapshots/**` 后再做。
+- **申请 `fs.write` 自动保存模型**：~~等授权且 scope 限定 `architecture/snapshots/**` 后再做。~~ **1.4.0 已按用户授权 A 落地**，但做法与原计划不同：scope 是 `architecture/**`（不只是 `snapshots/`），因为"自动保存 ↓ 打开架构图"需要落到标准路径 `architecture/model.json`。为抵消宿主 `writeText` 直接覆盖的风险，改为四道约束：① 不带 `decision` 时只规划不写入；② 目标已存在时只给内容寻址快照与显式"覆盖写入"，`create` 一律以 `TARGET_EXISTS` 拒绝；③ 每个决策写入前重新 `stat`；④ 写入后按预期字节数复核，不符返回 `WRITE_UNVERIFIED`。人工补过的模型不会被静默替换。见 `architecture/decisions/no-safe-publish-primitive.md`、`src/host/save-model.js` 与 `host-acceptance.md` A15。
 - **新增架构技能**：同意"少做一些"。前台概念压到 Understand / Impact / Risk 三个，其余归 `docs/`。
 - **采集器改写成 AST 解析器**：工作量大，且会改变全部 `evidence.line` 的语义（现在是行号命中，AST 后会变成节点位置）。当前面向行启发式的局限已如实写进 CHANGELOG 与夹具清单，不伪装。
 - **读取 Git 状态**：见 P2 说明。
@@ -77,7 +78,7 @@ ChatGPT 关于生态与竞争的说法（CodeSee 已成熟、"插件中心很多
 
 ## 五、验收标准
 
-- P0：`node --test tests/*.test.js` 全绿；浏览器预览实测点击证据能打开文件、复制能写入剪贴板。
+- P0：`node --test tests/*.test.js` 全绿；浏览器预览实测点击证据能打开文件、复制能写入剪贴板。**1.4.0 补记**：当时的浏览器实测用的是 stub bridge，因此没发现宿主 `clipboard.writeText` 需要未声明的 `clipboard.write` 权限——这是 stub 测试的盲区，`tests/registration-contract.test.js` 的"面板宿主桥通道→权限映射"测试就是为堵住它而加。
 - P1：关系图的节点/边集合与模型逐一对应（测试固定）；首页重组后"零前置条件下三步内得到可查询模型"仍成立。
 - P2：变更集影响不引入任何 Git 读取；漂移输出的每条差异都带 `evidenceIds`。
 - 全阶段：不新增权限；受控失败仍以稳定错误码呈现，不静默降级。
