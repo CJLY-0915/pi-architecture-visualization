@@ -129,7 +129,7 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 
 ### 质量门禁
 
-`node --test tests/*.test.js` 当前 351/351（已在 `architecture/` 缺席的条件下复现 CI 环境验证通过）；三平台 CI 最新 run（commit `fdb9211`）已回看并三平台全绿——`bb03244` 之后曾因测试读取 gitignore 目录而三平台全红，1.4.1 修复后确认恢复；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件，1.5.0 起 **44 文件**——新增 `src/core/diagram.js`、`src/core/drift.js`、`src/host/drift-check.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
+`node --test tests/*.test.js` 当前 351/351（已在 `architecture/` 缺席的条件下复现 CI 环境验证通过）；三平台 CI **已回看到的最新 run** 是 commit `2837940`（错误码拆分记录），三平台全绿——`bb03244` 之后曾因测试读取 gitignore 目录而三平台全红，1.4.1 修复后确认恢复；1.5.1（commit `8b87675`）的 run **尚未回看**：本机未认证请求 GitHub Actions API 持续返回 403，查不到结论，因此不把它记成通过；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件，1.5.0 起 **44 文件**——新增 `src/core/diagram.js`、`src/core/drift.js`、`src/host/drift-check.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 
 ## 设计原则
 
