@@ -125,6 +125,7 @@
 - **验证（本地）**：`node --test tests/*.test.js` 350 → **351**，全绿。新增一条面板交互测试覆盖控件显隐、缩放上下限、拖拽与 slop、`buttons` 归零结束拖拽、滚轮缺 `deltaY` 时不动视图、重绘不继承旧偏移。
 - **验证（浏览器实测）**：用带桥接桩的预览页在真实 Chromium 里跑过。模型载入后绘图，`data-diagram-scale` 1 → 1.25 → 1.5625，SVG 渲染宽度 442 → 690.6px（画布 1504px、舞台 458px，默认视图仍整体可见）。滚轮以指针为锚：节点中心在两次缩放后仍停在 (97, 4019)；按钮以舞台中心为锚：连续五档缩放（进/进/退/退/退）后，舞台中心对应的内容点漂移 ≤0.3px。真实鼠标拖拽 (40, 30) 得到 `x=40, y=30`；拖拽落在节点上不改变焦点，无拖拽的点击正常聚焦；`pointermove` 带 `buttons: 0` 时拖拽结束且画布不动。三个写入按钮宽 97/84px，`save-actions` 的 `scrollWidth` 与 `clientWidth` 相等（456=456），不再溢出。**预览页写在 gitignore 的 `Temp/` 下，验证后已删除。**
 - **尚未真机确认**：与 1.5.0 相同，关系图/变更集/漂移三个通道仍未在真实 PI-Desktop 面板点过（A16 仍为 ⬜）；本次的平移缩放同样只在本机浏览器验证过，未在宿主面板里拖过。
+- **CI 已回看**：1.5.1 的 run [35953559639](https://github.com/CJLY-0915/pi-architecture-visualization/actions/runs/35953559639)（commit `8b87675`，2026-09-24T03:56:56Z 起）与随后文档修正的 run [35953927755](https://github.com/CJLY-0915/pi-architecture-visualization/actions/runs/35953927755)（commit `1aa5a1c`，2026-09-24T04:02:19Z 起）均三平台 `conclusion=success`：各 3 个 job（ubuntu/windows/macos-latest）、每 job 7 个 step 全部成功。读取方式为本机请求 GitHub Actions API，属本地日志而非用户证言。
 ## J. 已知不一致：invalid model 错误码有三种拼写
 
 - **事实**：同一个"模型未通过结构校验"的条件，在仓库里有三种错误码拼写——`src/host/read-model.js` 与 `src/host/save-model.js` 用大写 `'INVALID_MODEL'`；`src/core/export-preview.js`（以及 1.5.0 新增的 `diagram.js`、`drift.js`）用小写 `'invalid_model'`；`src/core/impact.js` 则把该条件报成 `'unsupported_input'`（`ERROR_CODE.INVALID_MODEL = CODES.UNSUPPORTED_INPUT`）。`error-codes.js` 里**没有** `INVALID_MODEL` 键，三种都是字面量。
