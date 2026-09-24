@@ -100,3 +100,11 @@
 - 采集器读取但不建模的文件类型（`.properties`/`.sh`/`.py`）静默无诊断。
 - Java/Maven/Gradle 依赖采集。
 - L4 Code 层。
+
+## H. 1.4.1（2026-09-24）修复：CI 三平台全红
+
+- **现象**：`tests/export-preview.test.js` 的"预览预算足够完整导出真实规模模型"在 macOS / Ubuntu / Windows 三个平台全部 `ENOENT: architecture/model.json`。这是唯一一条失败的测试，三个平台同一根因。
+- **根因**：该测试用 `path.join(__dirname, '..', 'architecture', 'model.json')` 读本仓库自身的架构模型，而 `architecture/` 在 `.gitignore` 里（`tests/package-scope.test.js` 的"local-only 目录不被 git 跟踪"守卫一直在确认这件事）。CI 上目录不存在，作者机器上存在——于是这条守卫**从写下起就没在 CI 跑过一次**，本地全绿是巧合。`bb03244` 的三平台全绿发生在这条测试出现之前，其后没人再回看过 CI。
+- **修复**：把 `architecture/model.json` 在 1.4.0 时的快照固化为 `fixtures/realistic-model.json`（20 节点 / 27 边 / 30 证据 / 8 视图），测试改读夹具并把这三个计数钉死，快照被悄悄换掉会立刻红。新增守卫"no test reads a local-only directory"：任何测试文件用 `path.join` 或 `require` 触及 `architecture`/`dist`/`Temp`/`.pi`/`node_modules`/`coverage`/`.cache` 即失败；已用带病灶的探针文件双向验证两种形状都能抓住。测试里的裸 `'architecture/model.json'` 字符串是喂给桩宿主的内存路径，不算违规。
+- **验证**：本地把 `architecture/` 临时改名后跑全量，304/304 通过——即 CI 上的真实环境。运行时与打包集合无变化（仍 41 文件、同样字节）。
+- **待回看**：1.4.1 的三平台 CI run 结果。回看并通过前，README 与 `host-compatibility.md` 都不得写"CI 已全绿"。

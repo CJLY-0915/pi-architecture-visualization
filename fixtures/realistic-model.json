@@ -1,0 +1,827 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "architecture-visualization",
+    "name": "Architecture Visualization"
+  },
+  "scope": {
+    "roots": [
+      "."
+    ]
+  },
+  "sourceRevision": "2d81c97",
+  "generatedAt": "2026-09-24T09:15:50+08:00",
+  "coverage": {
+    "filesScanned": 114,
+    "filesListed": 117,
+    "filesSkipped": 0,
+    "complete": true,
+    "adapters": [
+      "js-ts",
+      "manifests",
+      "infra"
+    ],
+    "note": "filesScanned/filesListed/filesSkipped 来自 architecture_collect（scopeRoots [\"./\"]、maxFiles=500，宿主实测）。117 个列出条目中 3 个因位于 dist/ 被策略忽略，故 filesListed > filesScanned + filesSkipped；无文件在列出后被扣留。宿主列举不含 .git/ 内部文件。本模型按边界手工归并为 L1/L2，不是文件清单。"
+  },
+  "nodes": [
+    {
+      "id": "system:architecture-visualization",
+      "name": "Architecture Visualization 插件",
+      "type": "system",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:manifest.json",
+        "ev:package.json"
+      ]
+    },
+    {
+      "id": "container:plugin-entry",
+      "name": "main.js 插件入口（命令/工具注册、onLoad/onUnload）",
+      "type": "container",
+      "parentId": "system:architecture-visualization",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:main.js#1"
+      ]
+    },
+    {
+      "id": "container:agent-extension",
+      "name": "workflow-rule.mjs 常驻路由扩展（agent 进程内）",
+      "type": "container",
+      "parentId": "system:architecture-visualization",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:extensions/workflow-rule.mjs#56"
+      ]
+    },
+    {
+      "id": "container:panel",
+      "name": "renderer/index.html 只读工作台（浮动面板窗口 + 右侧停靠视图，共用同一 preload 与 bridge；六个 architecture.* 通道；采集结果可当场成为活动模型并直接分析，四个分析入口接受内存 model 代替 path；证据可经 fs.openDefault 打开、导出可经 clipboard.writeText 复制）",
+      "type": "container",
+      "parentId": "system:architecture-visualization",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:renderer/index.html#272"
+      ]
+    },
+    {
+      "id": "component:core-model",
+      "name": "src/core 纯函数核心（校验/图/查询/影响/比较/健康/快照规划/导出预览）",
+      "type": "component",
+      "parentId": "container:plugin-entry",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:src/core/validation.js"
+      ]
+    },
+    {
+      "id": "component:collectors",
+      "name": "src/collectors 只读采集（js-ts/manifests/infra 适配器）",
+      "type": "component",
+      "parentId": "container:plugin-entry",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:src/collectors/index.js"
+      ]
+    },
+    {
+      "id": "component:host-adapters",
+      "name": "src/host 宿主适配（read-model/analysis-tools/health-tool/snapshot-plan-tool/fs-source）",
+      "type": "component",
+      "parentId": "container:plugin-entry",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:src/host/analysis-tools.js"
+      ]
+    },
+    {
+      "id": "component:contract",
+      "name": "manifest.json + schemas 合同",
+      "type": "component",
+      "parentId": "container:plugin-entry",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:manifest.json",
+        "ev:schemas/architecture-model.schema.json"
+      ]
+    },
+    {
+      "id": "component:skills",
+      "name": "13 个架构技能（1 路由 + 12 场景/格式）",
+      "type": "component",
+      "parentId": "container:skills-catalog",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:skills/explore/SKILL.md"
+      ]
+    },
+    {
+      "id": "component:tests",
+      "name": "tests Node 内置测试（277 用例）",
+      "type": "component",
+      "parentId": "container:verification",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:tests/manifest-contract.test.js"
+      ]
+    },
+    {
+      "id": "component:docs",
+      "name": "docs/README/PLAN 文档",
+      "type": "component",
+      "parentId": "container:documentation",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:docs/host-compatibility.md"
+      ]
+    },
+    {
+      "id": "datastore:target-model",
+      "name": "目标项目的 architecture/model.json（插件读取的事实来源）",
+      "type": "datastore",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:README.md"
+      ]
+    },
+    {
+      "id": "external:pi-desktop-host",
+      "name": "PI-Desktop 宿主 0.15.4（pi.fs / pi.workspace / panel bridge / 工具与技能注册表）",
+      "type": "external",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:docs/host-compatibility.md",
+        "ev:main.js#1"
+      ]
+    },
+    {
+      "id": "external:agent-sidecar",
+      "name": "agent 侧车（jiti 加载扩展并发射 before_agent_start）",
+      "type": "external",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:extensions/workflow-rule.mjs",
+        "ev:docs/host-compatibility.md"
+      ]
+    },
+    {
+      "id": "external:node-builtins",
+      "name": "Node 内置模块（node:test/fs/path/crypto/url/vm）",
+      "type": "external",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:tests/agent-extension.test.js#10"
+      ]
+    },
+    {
+      "id": "external:agent",
+      "name": "LLM Agent（消费技能目录与调用 agent 工具）",
+      "type": "external",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:docs/host-compatibility.md"
+      ]
+    },
+    {
+      "id": "actor:developer",
+      "name": "使用者（经命令面板打开工作台，在面板里读模型、提交查询表单）",
+      "type": "actor",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:manifest.json",
+        "ev:main.js#167",
+        "ev:renderer/index.html#417",
+        "ev:PLAN.md#391"
+      ]
+    },
+    {
+      "id": "container:skills-catalog",
+      "name": "skills/ 技能目录（13 个 SKILL.md，经 contributes.skills 注册）",
+      "type": "container",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:manifest.json"
+      ],
+      "parentId": "system:architecture-visualization"
+    },
+    {
+      "id": "container:verification",
+      "name": "tests/ 测试套件（node --test 可运行单元）",
+      "type": "container",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:package.json"
+      ],
+      "parentId": "system:architecture-visualization"
+    },
+    {
+      "id": "container:documentation",
+      "name": "docs/README/PLAN 文档（随仓库发布，不进插件包）",
+      "type": "container",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:README.md"
+      ],
+      "parentId": "system:architecture-visualization"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:container:plugin-entry|external:pi-desktop-host|depends_on",
+      "source": "container:plugin-entry",
+      "target": "external:pi-desktop-host",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:main.js#1",
+        "ev:docs/host-compatibility.md"
+      ]
+    },
+    {
+      "id": "edge:container:plugin-entry|component:core-model|depends_on",
+      "source": "container:plugin-entry",
+      "target": "component:core-model",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:main.js#5"
+      ]
+    },
+    {
+      "id": "edge:container:plugin-entry|component:collectors|depends_on",
+      "source": "container:plugin-entry",
+      "target": "component:collectors",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:main.js#6"
+      ]
+    },
+    {
+      "id": "edge:container:plugin-entry|component:host-adapters|depends_on",
+      "source": "container:plugin-entry",
+      "target": "component:host-adapters",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:main.js#2"
+      ]
+    },
+    {
+      "id": "edge:component:host-adapters|component:core-model|depends_on",
+      "source": "component:host-adapters",
+      "target": "component:core-model",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:src/host/analysis-tools.js#5"
+      ]
+    },
+    {
+      "id": "edge:component:collectors|component:core-model|depends_on",
+      "source": "component:collectors",
+      "target": "component:core-model",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:src/collectors/index.js#4"
+      ]
+    },
+    {
+      "id": "edge:component:tests|component:core-model|depends_on",
+      "source": "component:tests",
+      "target": "component:core-model",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:tests/validation.test.js#8"
+      ]
+    },
+    {
+      "id": "edge:component:tests|component:host-adapters|depends_on",
+      "source": "component:tests",
+      "target": "component:host-adapters",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:tests/analysis-tools.test.js#5"
+      ]
+    },
+    {
+      "id": "edge:component:tests|component:collectors|depends_on",
+      "source": "component:tests",
+      "target": "component:collectors",
+      "type": "depends_on",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:tests/collectors.test.js#8"
+      ]
+    },
+    {
+      "id": "edge:component:host-adapters|datastore:target-model|reads",
+      "source": "component:host-adapters",
+      "target": "datastore:target-model",
+      "type": "reads",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:README.md"
+      ]
+    },
+    {
+      "id": "edge:component:collectors|datastore:target-model|reads",
+      "source": "component:collectors",
+      "target": "datastore:target-model",
+      "type": "reads",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:src/host/fs-source.js",
+        "ev:README.md"
+      ]
+    },
+    {
+      "id": "edge:container:panel|external:pi-desktop-host|calls",
+      "source": "container:panel",
+      "target": "external:pi-desktop-host",
+      "type": "calls",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:renderer/index.html#272",
+        "ev:renderer/index.html#422"
+      ]
+    },
+    {
+      "id": "edge:external:agent-sidecar|container:agent-extension|calls",
+      "source": "external:agent-sidecar",
+      "target": "container:agent-extension",
+      "type": "calls",
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:extensions/workflow-rule.mjs#56"
+      ]
+    },
+    {
+      "id": "edge:external:pi-desktop-host|component:contract|reads",
+      "source": "external:pi-desktop-host",
+      "target": "component:contract",
+      "type": "reads",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:src/host/analysis-tools.js#8"
+      ]
+    },
+    {
+      "id": "edge:external:pi-desktop-host|container:skills-catalog|publishes",
+      "source": "external:pi-desktop-host",
+      "target": "container:skills-catalog",
+      "type": "publishes",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:manifest.json",
+        "ev:docs/host-compatibility.md"
+      ]
+    },
+    {
+      "id": "edge:external:agent|container:skills-catalog|subscribes",
+      "source": "external:agent",
+      "target": "container:skills-catalog",
+      "type": "subscribes",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:skills/explore/SKILL.md"
+      ]
+    },
+    {
+      "id": "edge:external:agent|container:plugin-entry|calls",
+      "source": "external:agent",
+      "target": "container:plugin-entry",
+      "type": "calls",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:manifest.json"
+      ]
+    },
+    {
+      "id": "edge:container:agent-extension|container:skills-catalog|depends_on",
+      "source": "container:agent-extension",
+      "target": "container:skills-catalog",
+      "type": "depends_on",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:extensions/workflow-rule.mjs#21"
+      ]
+    },
+    {
+      "id": "edge:actor:developer|container:panel|calls",
+      "source": "actor:developer",
+      "target": "container:panel",
+      "type": "calls",
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:main.js#167",
+        "ev:renderer/index.html#417",
+        "ev:PLAN.md#391"
+      ]
+    },
+    {
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:renderer/index.html#417"
+      ],
+      "id": "edge:actor-developer-system",
+      "source": "actor:developer",
+      "target": "system:architecture-visualization",
+      "type": "calls"
+    },
+    {
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:manifest.json"
+      ],
+      "id": "edge:actor-agent-system",
+      "source": "external:agent",
+      "target": "system:architecture-visualization",
+      "type": "calls"
+    },
+    {
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:main.js#1"
+      ],
+      "id": "edge:system-host",
+      "source": "system:architecture-visualization",
+      "target": "external:pi-desktop-host",
+      "type": "depends_on"
+    },
+    {
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:manifest.json"
+      ],
+      "id": "edge:host-system-reads",
+      "source": "external:pi-desktop-host",
+      "target": "system:architecture-visualization",
+      "type": "reads"
+    },
+    {
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:extensions/workflow-rule.mjs"
+      ],
+      "id": "edge:system-sidecar",
+      "source": "system:architecture-visualization",
+      "target": "external:agent-sidecar",
+      "type": "depends_on"
+    },
+    {
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:src/host/fs-source.js"
+      ],
+      "id": "edge:system-target-model",
+      "source": "system:architecture-visualization",
+      "target": "datastore:target-model",
+      "type": "reads"
+    },
+    {
+      "state": "current",
+      "status": "confirmed",
+      "confidence": "high",
+      "evidenceIds": [
+        "ev:tests/manifest-contract.test.js"
+      ],
+      "id": "edge:verification-plugin-entry",
+      "source": "container:verification",
+      "target": "container:plugin-entry",
+      "type": "depends_on"
+    },
+    {
+      "state": "current",
+      "status": "inferred",
+      "confidence": "medium",
+      "evidenceIds": [
+        "ev:README.md"
+      ],
+      "id": "edge:documentation-plugin-entry",
+      "source": "container:documentation",
+      "target": "container:plugin-entry",
+      "type": "depends_on"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev:manifest.json",
+      "path": "manifest.json",
+      "type": "config"
+    },
+    {
+      "id": "ev:package.json",
+      "path": "package.json",
+      "type": "config"
+    },
+    {
+      "id": "ev:main.js#1",
+      "path": "main.js",
+      "type": "code",
+      "line": 1
+    },
+    {
+      "id": "ev:main.js#2",
+      "path": "main.js",
+      "type": "code",
+      "line": 2
+    },
+    {
+      "id": "ev:main.js#5",
+      "path": "main.js",
+      "type": "code",
+      "line": 5
+    },
+    {
+      "id": "ev:main.js#6",
+      "path": "main.js",
+      "type": "code",
+      "line": 6
+    },
+    {
+      "id": "ev:extensions/workflow-rule.mjs",
+      "path": "extensions/workflow-rule.mjs",
+      "type": "code"
+    },
+    {
+      "id": "ev:extensions/workflow-rule.mjs#21",
+      "path": "extensions/workflow-rule.mjs",
+      "type": "code",
+      "line": 21
+    },
+    {
+      "id": "ev:extensions/workflow-rule.mjs#56",
+      "path": "extensions/workflow-rule.mjs",
+      "type": "code",
+      "line": 56
+    },
+    {
+      "id": "ev:renderer/index.html#272",
+      "path": "renderer/index.html",
+      "type": "code",
+      "line": 272
+    },
+    {
+      "id": "ev:renderer/index.html#422",
+      "path": "renderer/index.html",
+      "type": "code",
+      "line": 422
+    },
+    {
+      "id": "ev:src/core/validation.js",
+      "path": "src/core/validation.js",
+      "type": "code"
+    },
+    {
+      "id": "ev:src/collectors/index.js",
+      "path": "src/collectors/index.js",
+      "type": "code"
+    },
+    {
+      "id": "ev:src/collectors/index.js#4",
+      "path": "src/collectors/index.js",
+      "type": "code",
+      "line": 4
+    },
+    {
+      "id": "ev:src/host/analysis-tools.js",
+      "path": "src/host/analysis-tools.js",
+      "type": "code"
+    },
+    {
+      "id": "ev:src/host/analysis-tools.js#5",
+      "path": "src/host/analysis-tools.js",
+      "type": "code",
+      "line": 5
+    },
+    {
+      "id": "ev:src/host/analysis-tools.js#8",
+      "path": "src/host/analysis-tools.js",
+      "type": "code",
+      "line": 8
+    },
+    {
+      "id": "ev:src/host/fs-source.js",
+      "path": "src/host/fs-source.js",
+      "type": "code"
+    },
+    {
+      "id": "ev:schemas/architecture-model.schema.json",
+      "path": "schemas/architecture-model.schema.json",
+      "type": "schema"
+    },
+    {
+      "id": "ev:skills/explore/SKILL.md",
+      "path": "skills/explore/SKILL.md",
+      "type": "document"
+    },
+    {
+      "id": "ev:tests/manifest-contract.test.js",
+      "path": "tests/manifest-contract.test.js",
+      "type": "code"
+    },
+    {
+      "id": "ev:tests/validation.test.js#8",
+      "path": "tests/validation.test.js",
+      "type": "code",
+      "line": 8
+    },
+    {
+      "id": "ev:tests/analysis-tools.test.js#5",
+      "path": "tests/analysis-tools.test.js",
+      "type": "code",
+      "line": 5
+    },
+    {
+      "id": "ev:tests/collectors.test.js#8",
+      "path": "tests/collectors.test.js",
+      "type": "code",
+      "line": 8
+    },
+    {
+      "id": "ev:tests/agent-extension.test.js#10",
+      "path": "tests/agent-extension.test.js",
+      "type": "code",
+      "line": 10
+    },
+    {
+      "id": "ev:docs/host-compatibility.md",
+      "path": "docs/host-compatibility.md",
+      "type": "document"
+    },
+    {
+      "id": "ev:README.md",
+      "path": "README.md",
+      "type": "document"
+    },
+    {
+      "id": "ev:main.js#167",
+      "path": "main.js",
+      "type": "code",
+      "line": 167
+    },
+    {
+      "id": "ev:renderer/index.html#417",
+      "path": "renderer/index.html",
+      "type": "code",
+      "line": 417
+    },
+    {
+      "id": "ev:PLAN.md#391",
+      "path": "PLAN.md",
+      "type": "document",
+      "line": 391
+    }
+  ],
+  "views": [
+    {
+      "id": "view:current-state"
+    },
+    {
+      "id": "view:executive"
+    },
+    {
+      "id": "view:module-relations"
+    },
+    {
+      "id": "view:flow-validate-request"
+    },
+    {
+      "id": "view:blast-radius-module-core-model"
+    },
+    {
+      "id": "view:c4-l1-system-context"
+    },
+    {
+      "id": "view:c4-l2-container"
+    },
+    {
+      "id": "view:c4-l3-component"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding:read-only-no-fs-write"
+    },
+    {
+      "id": "finding:extension-zero-dependency"
+    },
+    {
+      "id": "finding:skills-require-explicit-id"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "decision:no-safe-publish-primitive"
+    }
+  ],
+  "migrationSlices": [],
+  "unknowns": [
+    {
+      "id": "unknown:command-unregister-e2e",
+      "note": "A4：卸载后命令从命令面板消失，至今只有 tests/registration-contract.test.js 单测覆盖，未在真实宿主复跑。"
+    },
+    {
+      "id": "unknown:docked-view-lifecycle-residue",
+      "note": "A13：右侧停靠视图的核心只读路径已由用户在真实宿主确认（2026-09-23，用户证言：打开标签页、读取模型、查询、影响分析均正常，与浮动面板行为一致）。仍未单独检查的是生命周期细节：重复打开/关闭停靠视图后是否残留注册或出现重复面板。宿主没有供插件自行打开视图的 API（pi.ui 只有 openPanel/closePanel/showToast），因此只能由用户在工作面板点开。"
+    },
+    {
+      "id": "unknown:target-model-path",
+      "note": "目标项目 architecture/model.json 的实际路径与存在性由调用方给定，插件不推断、不扫描猜测。"
+    }
+  ]
+}

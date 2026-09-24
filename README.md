@@ -2,7 +2,7 @@
 
 PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条结论都挂 `file:line` 出处和 `confirmed`/`inferred`/`assumed`/`unknown` 分级——查不到证据就明说不知道，不画成确认的框；采集器看不见的（动态 `import()`、字符串键派发、Java 构建文件）报 `unsupported_input`，不安静地产出一张看起来完整的空图。在这份模型之上做只读的查询、影响分析、健康检查与导出。
 
-仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main`；推送到 `main` 或开 PR 会触发三平台 CI）。版本 **1.4.0**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；完整定位、场景与价值论证见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
+仓库：<https://github.com/CJLY-0915/pi-architecture-visualization>（`main`；推送到 `main` 或开 PR 会触发三平台 CI）。版本 **1.4.1**；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)；完整定位、场景与价值论证见 [docs/positioning-and-value.md](./docs/positioning-and-value.md)。
 
 ## 三个你马上能做的事
 
@@ -125,7 +125,7 @@ PI-Desktop 插件：**把"AI 说的架构"变成"能核对的架构"。** 每条
 
 ### 质量门禁
 
-`node --test tests/*.test.js` 当前 303/303；三平台 CI 全绿；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件——新增 `src/host/save-model.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
+`node --test tests/*.test.js` 当前 304/304（已在 `architecture/` 缺席的条件下复现 CI 环境验证通过）；三平台 CI 的最新 run 结果**待回看**——`bb03244` 曾三平台全绿，其后一度因测试读取 gitignore 目录而三平台全红，1.4.1 修复；干净镜像 `PluginCheck` 无错误通过（1.4.0 起运行时集合 41 文件——新增 `src/host/save-model.js`，由 `tests/package-scope.test.js` 断言；新集合的干净镜像实测待重跑）；`.piplug` 只由不含会话目标文件与临时镜像的干净镜像经官方 `PluginPack` 生成并审计。逐项宿主验收（A 组生命周期 15 项、B 组场景技能）见 [docs/host-acceptance.md](./docs/host-acceptance.md)。
 
 ## 设计原则
 

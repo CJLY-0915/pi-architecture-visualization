@@ -179,10 +179,16 @@ test('a truncated drawio export is reported as unusable rather than as a smaller
 });
 
 test('the preview budget is large enough for a complete export of a realistic model', () => {
-  // architecture/model.json of this repository is the realistic case: 20 nodes
-  // and 27 edges. Every format must export completely, or the on-disk artifact
-  // derived from it would be silently partial.
-  const model = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'architecture', 'model.json'), 'utf8'));
+  // fixtures/realistic-model.json is a snapshot of this repository's own
+  // architecture/model.json at 1.4.0 (20 nodes, 27 edges, 30 evidence, 8 views).
+  // architecture/ is gitignored, so no test may read it directly: CI has no
+  // such file, and a budget guard that cannot run is worse than no guard at
+  // all. Refresh the snapshot by copying architecture/model.json over this
+  // fixture and updating the pinned counts below.
+  const model = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'realistic-model.json'), 'utf8'));
+  assert.equal(model.nodes.length, 20, 'the snapshot must stay the realistic 20-node case');
+  assert.equal(model.edges.length, 27);
+  assert.equal(model.evidence.length, 30);
   for (const format of FORMATS) {
     if (format === 'png') continue;
     const result = exportPreview(clone(model), format, format === 'c4' ? { level: 3 } : undefined);

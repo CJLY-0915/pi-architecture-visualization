@@ -3,6 +3,28 @@
 格式遵循 Keep a Changelog；版本号遵循语义化版本。本仓库在 1.0.0 之前没有变更记录，
 因此 1.0.0 条目覆盖的是整个开发周期的净结果，而不是相对某个已发布版本的增量。
 
+## [1.4.1] - 2026-09-24
+
+修复一个只影响 CI 的测试缺陷。**运行时与打包集合均无变化**（仍是 41 文件、同样的字节），因此这一版不带来任何行为差异。
+
+### 修复
+
+- `tests/export-preview.test.js` 的"预览预算足够完整导出真实规模模型"直接读
+  `architecture/model.json`，而 `architecture/` 在 `.gitignore` 里。于是这条守卫在作者机器上
+  一直绿，在三个平台的 CI 上一直 `ENOENT`——**从它写下起就没在 CI 跑过一次**。本地能过纯属
+  巧合：目录恰好存在。
+- 改为读 `fixtures/realistic-model.json`——`architecture/model.json` 在 1.4.0 时的快照
+  （20 节点 / 27 边 / 30 证据 / 8 视图），并把这三个计数钉在测试里，快照被悄悄换掉会立刻红。
+- 新增守卫 `tests/package-scope.test.js` 的"no test reads a local-only directory"：任何测试文件
+  用 `path.join` 或 `require` 触及 `architecture`/`dist`/`Temp`/`.pi`/`node_modules`/`coverage`/
+  `.cache` 即失败。用带病灶的探针文件双向验证过：`path.join` 与 `require` 两种形状都能抓住。
+  测试里出现的裸 `'architecture/model.json'` 字符串是喂给桩宿主的内存路径，不算违规。
+- 验收方式：把 `architecture/` 临时改名后跑全量，304/304 通过——即 CI 上的真实状态。
+
+### 测试
+
+- `node --test tests/*.test.js` 303 → 304。
+
 ## [1.4.0] - 2026-09-24
 
 面板可以把一次采集结果写进工作区了。写入前先展示目标状态，默认不覆盖已有文件。

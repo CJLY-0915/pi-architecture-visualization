@@ -126,3 +126,28 @@ test('the manifest and package versions stay in step', () => {
     'manifest.json and package.json must declare the same version');
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'the version must be a semver triple');
 });
+
+// A test that reads a local-only directory passes on the machine that has the
+// directory and fails everywhere else. `architecture/` holds this repository's
+// own model, is gitignored, and is exactly how the export-preview budget guard
+// stopped running on CI: green locally, ENOENT on all three platforms. Any
+// data a test needs has to be committed, which for a model means a fixture.
+test('no test reads a local-only directory', () => {
+  const offenders = [];
+  for (const file of ALL_FILES.filter((entry) => /^tests\/.*\.test\.js$/.test(entry))) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    // The dangerous shape is a filesystem join naming a local-only directory;
+    // a bare 'architecture/model.json' string is an in-memory path handed to a
+    // stubbed host and stays legitimate.
+    for (const match of source.matchAll(/path\.join\(([^)]*)\)/g)) {
+      const segments = [...match[1].matchAll(/'([^']*)'/g)].map((segment) => segment[1]);
+      const hit = segments.find((segment) => LOCAL_ONLY.includes(segment));
+      if (hit) offenders.push(`${file}: path.join reaches the local-only directory ${hit}`);
+    }
+    for (const match of source.matchAll(/require\((['"])(\.\.?\/[^'"]+)\1\)/g)) {
+      const first = match[2].split('/')[1];
+      if (LOCAL_ONLY.includes(first)) offenders.push(`${file}: require reaches the local-only directory ${first}`);
+    }
+  }
+  assert.deepEqual(offenders, [], 'a test must never depend on a directory CI does not have');
+});
