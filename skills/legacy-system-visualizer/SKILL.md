@@ -34,7 +34,7 @@ Label every line with `confidence` and at least one evidence path. Rumour and tr
 
 | Collector | Sees | Misses |
 | --- | --- | --- |
-| js-ts | static import/export and `require`/`import` specifiers, bare package names in package.json | dynamic `import()`/`require()`, tsconfig path mapping, `exports`/`main` resolution, re-export barrels |
+| js-ts | static import/export and `require`/`import` specifiers, bare package names in package.json | dynamic imports or requires, tsconfig path mapping, `exports`/`main` resolution, re-export barrels |
 | manifests | single-line dependencies in package.json, requirements.txt, pyproject, go.mod, pom.xml, build.gradle | multiline or table TOML dependencies, `project(':core')`, other package managers |
 | infra | Compose top-level services and `depends_on`, Kubernetes kind and `metadata.name` | OpenAPI, CI workflows, Terraform, other YAML |
 

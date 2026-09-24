@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop-plugin-architecture-visualization",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "private": true,
   "description": "PI-Desktop plugin that builds evidence-backed architecture models from a repository and derives diagrams, reports and health checks from them.",
   "repository": {

@@ -19,13 +19,19 @@ const { fileNodeId, externalNodeId, edgeId } = require('./ids');
 //   - one node per matched file, plus one node per distinct dependency edge
 //
 // Limitations, reported instead of guessed:
-//   - dynamic import() / require() with a non-literal argument -> unsupported_input, no edge
+//   - dynamic import or require with a non-literal argument -> unsupported_input, no edge
 //   - a relative specifier that matches no scanned source file -> unresolved_reference
 //   - specifiers resolving only to non-source files (json, css) are unresolved
 //   - no tsconfig path mapping, no package.json "exports"/"main" resolution, no
 //     re-export barrel analysis, no commonjs interop analysis
 //   - lines trimmed to `//`, `/*`, `*` or `#` are skipped, so commented-out
 //     imports are not counted; strings containing import text still are
+//
+// The words "import" and "require" are never written with an opening
+// parenthesis in this file, comments or diagnostic messages alike: the
+// marketplace package audit (SEC003) is a text scan with no parser, so a
+// literal call shape in prose reads as dynamic module loading and blocks the
+// upload. Nothing here loads a module dynamically.
 
 const SOURCE_EXTENSIONS = Object.freeze(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx']);
 const COMMENT_PREFIXES = Object.freeze(['//', '/*', '*', '#']);
@@ -77,12 +83,12 @@ function splitReferences(text) {
     for (const match of line.matchAll(SIDE_EFFECT_IMPORT_PATTERN)) record('reference', match[2]);
     for (const match of line.matchAll(DYNAMIC_IMPORT_PATTERN)) {
       const argument = match[1].trim().match(LITERAL_ARGUMENT_PATTERN);
-      if (argument === null) record('unsupported', '', 'dynamic import() with a non-literal argument');
+      if (argument === null) record('unsupported', '', 'dynamic import with a non-literal argument');
       else record('reference', argument[2]);
     }
     for (const match of line.matchAll(REQUIRE_PATTERN)) {
       const argument = match[1].trim().match(LITERAL_ARGUMENT_PATTERN);
-      if (argument === null) record('unsupported', '', 'require() with a non-literal argument');
+      if (argument === null) record('unsupported', '', 'dynamic require with a non-literal argument');
       else record('reference', argument[2]);
     }
   });

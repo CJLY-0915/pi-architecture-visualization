@@ -151,3 +151,26 @@ test('no test reads a local-only directory', () => {
   }
   assert.deepEqual(offenders, [], 'a test must never depend on a directory CI does not have');
 });
+
+// The marketplace package audit (SEC003) is a text scan with no parser: a
+// literal `import(` or `require(` shape whose argument is not a string reads as
+// dynamic module loading and blocks the upload. Nothing in this plugin loads a
+// module dynamically, so the shipped set must not contain that shape at all —
+// not in code, and not in a comment or a diagnostic message describing one.
+// Rewording the prose is the fix; reintroducing the parentheses is not.
+test('the ship set carries no call-shaped dynamic module load', () => {
+  const CALLEE = /\b(?:import|require)\s*\(/g;
+  const STRING_LITERAL_ARGUMENT = /^\s*(['"])(?:\\.|(?!\1).)*\1\s*[,)]/;
+  const offenders = [];
+  for (const file of SHIP_FILES) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    source.split('\n').forEach((line, index) => {
+      for (const match of line.matchAll(CALLEE)) {
+        const argument = line.slice(match.index + match[0].length);
+        if (STRING_LITERAL_ARGUMENT.test(argument)) continue;
+        offenders.push(`${file}:${index + 1}: ${match[0].trim()} with a non-literal argument`);
+      }
+    });
+  }
+  assert.deepEqual(offenders, [], 'a call-shaped dynamic module load reads as dynamic code execution to the package audit');
+});

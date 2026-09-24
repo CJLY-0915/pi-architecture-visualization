@@ -51,7 +51,7 @@ Report the blast radius per edge kind, not as one number. A change whose only `c
 - **Confirmed impact** — every edge on the path is `confirmed` with resolving `evidenceIds`, and both endpoints resolve.
 - **Plausible impact** — the path crosses an `inferred` or `assumed` edge, a `low` or `medium` confidence edge, or a relation the collectors cannot see.
 
-`architecture_collect` sees static imports and string-literal requires, plus manifest dependencies. It does **not** see dynamic `import()` or `require()`, tsconfig path mapping, `exports`/`main` resolution, re-export barrels, multiline TOML dependencies, `project(':core')`, OpenAPI/Swagger, CI workflows, or Terraform. A clean collect is not a clean graph.
+`architecture_collect` sees static imports and string-literal requires, plus manifest dependencies. It does **not** see dynamic imports or requires, tsconfig path mapping, `exports`/`main` resolution, re-export barrels, multiline TOML dependencies, `project(':core')`, OpenAPI/Swagger, CI workflows, or Terraform. A clean collect is not a clean graph.
 
 ## Dependency health
 

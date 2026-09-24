@@ -21,7 +21,7 @@ When no model exists yet, the inventory is the artifact. Do not build a full `ar
 | --- | --- | --- |
 | `infra` | Compose top-level `services:` keys and their `depends_on`; Kubernetes `kind` plus the first `metadata.name` | OpenAPI/Swagger, `.github/workflows`, Terraform, every other YAML |
 | `manifests` | package.json, requirements.txt, pyproject single-line deps, go.mod, pom.xml, build.gradle coordinates | table TOML deps, `project(':core')`, other package managers |
-| `js-ts` | static import/export, string-literal `require()`/`import()`, relative and bare specifiers | dynamic `import()`/`require()`, tsconfig path mapping, re-export barrels |
+| `js-ts` | static import/export, string-literal require or import, relative and bare specifiers | dynamic imports or requires, tsconfig path mapping, re-export barrels |
 
 Collected infra nodes are `container` type with stable ids `container:compose-service:<path>#<service>` and `container:k8s:<kind>/<name>`. Compose services arrive `confirmed`/`high`; Kubernetes workloads arrive `confirmed`/`medium`. A `depends_on` target that is not a collected service yields no edge and is reported as unresolved — an absent edge is not proof of independence. A compose file with no top-level `services:` line yields nothing at all.
 

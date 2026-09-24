@@ -14,7 +14,7 @@ const { externalNodeId, containerNodeId } = require('./ids');
 //   - pyproject.toml: only `name = "..."` and a single-line
 //     `dependencies = [ ... ]` inside `[project]` or `[tool.poetry]`
 //   - go.mod: `module` -> container node; `require` lines (single line or
-//     `require ( ... )` block) -> `external` nodes
+//     parenthesised require block) -> `external` nodes
 //   - pom.xml: `<dependency>` blocks with `<groupId>`/`<artifactId>`
 //   - build.gradle: `implementation "group:artifact:version"` style string
 //     dependencies (optional parentheses)

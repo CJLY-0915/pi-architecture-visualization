@@ -23,8 +23,8 @@
 | A12 | Plan 模式门控与工具超时 | Plan 模式下调工具；构造慢读取 | 明确拒绝/超时，不挂起 | Agent 会话 | ✅ 用户本轮确认 |
 | A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ✅ 用户本轮确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）；标签页已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）。未单独检查：重复打开/关闭后的残留注册与重复面板（模型记 `unknown:docked-view-lifecycle-residue`） |
 | A14 | 面板采集并生成模型 | 不载入模型，直接在浮动面板或停靠视图点"采集并生成模型" | 返回有界摘要（计数、覆盖账本、盲区、上限）并当场生成完整模型；阅读器立即可用，图查询/影响/健康/导出都在这份内存模型上跑；非正整数文件预算本地拒绝；结构性不合格的模型被拒绝而非分析 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
-| A15 | 面板保存采集模型 | 授予 `fs.write` 并重载；点"采集并生成模型"→"确认目标状态"→"创建"；再点一次确认 `TARGET_EXISTS` 而不是覆盖 | 工作区出现 `architecture/model.json`；面板 `model-source` 变为"来自文件 …"；保存区块隐藏；已有目标时只给快照与显式覆盖；`plugin.log` 无 `PERMISSION_DENIED` | 注册表 `permissions`（含 `fs.write`/`clipboard.write`）+ `plugin.log` + 工作面板 + 工作区文件 | ⬜ 本轮新增，待宿主确认 |
-| A16 | 面板关系图 / 变更集 / 漂移 | 载入或采集一个模型后，依次点"绘制关系图"、在图上按住拖拽平移、用滚轮和"放大/缩小"缩放并点"重置视图"、点图中一个节点、点"清除焦点"、在"变更集影响"里粘一串路径提交、点"检查漂移" | 关系图渲染出 `<svg>` 且节点可点；拖拽后面画随之移动、滚轮缩放后点"重置视图"回到初始画面；焦点切换后出现"清除焦点"；变更集报告"未解析 N 个 / 结论完整：是或否"；漂移给出 `aligned`/`drifted`/`incomplete` 之一并附"不读 Git、不读文件内容"；三者都不产生工作区写入 | 工作面板 + 工作区（确认无新文件）+ `plugin.log`（确认无 `PERMISSION_DENIED`） | ⬜ 1.5.0 新增、1.5.1 补充平移缩放，待宿主确认 |
+| A15 | 面板保存采集模型 | 授予 `fs.write` 并重载；点"采集并生成模型"→"确认目标状态"→"创建"；再点一次确认 `TARGET_EXISTS` 而不是覆盖 | 工作区出现 `architecture/model.json`；面板 `model-source` 变为"来自文件 …"；保存区块隐藏；已有目标时只给快照与显式覆盖；`plugin.log` 无 `PERMISSION_DENIED` | 注册表 `permissions`（含 `fs.write`/`clipboard.write`）+ `plugin.log` + 工作面板 + 工作区文件 | ✅ 2026-09-24 用户确认"现在没有重载"——安装正式包后 `source=installed`、监视器未注册，保存不再触发热重载 |
+| A16 | 面板关系图 / 变更集 / 漂移 | 载入或采集一个模型后，依次点"绘制关系图"、在图上按住拖拽平移、用滚轮和"放大/缩小"缩放并点"重置视图"、点图中一个节点、点"清除焦点"、在"变更集影响"里粘一串路径提交、点"检查漂移" | 关系图渲染出 `<svg>` 且节点可点；拖拽后面画随之移动、滚轮缩放后点"重置视图"回到初始画面；焦点切换后出现"清除焦点"；变更集报告"未解析 N 个 / 结论完整：是或否"；漂移给出 `aligned`/`drifted`/`incomplete` 之一并附"不读 Git、不读文件内容"；三者都不产生工作区写入 | 工作面板 + 工作区（确认无新文件）+ `plugin.log`（确认无 `PERMISSION_DENIED`） | ✅ 2026-09-24 用户确认"可用"（安装正式包后） |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -141,10 +141,31 @@
 - **`PluginCheck` 通过**（44 文件），两条警告均已定性：`permission.high-risk` 列出 `agent.prompt.inject`、`agent.tool.register`、`fs.write`，三者都是插件功能所必需且需用户在插件页显式授权；`permission.unused` 报 `clipboard.write` 未使用属误报——该权限由面板 bridge 从渲染器调用（导出预览卡的"复制到剪贴板"在 `renderer/index.html:862`），而 `PluginCheck` 只扫 `main.js`，看不到 bridge 调用，权限必须保留。
 - **包内容审计**（自写 ZIP 中央目录读取器，非宿主代码）：44 条目与镜像 44 文件一一对应，全部为未压缩存储（method 0）、路径相对、无 `..` 穿越、无目录条目、无 `.log`/`.tmp`/`.cache`，每个条目大小与磁盘文件一致。不含 tests/fixtures/docs/`architecture/`/`README.md`/`PLAN.md`/`CHANGELOG.md` 及任何会话或缓存文件。
 - **分发包冒烟**（解包到 scratch，宿主桩加载，非开发目录）：3 条命令与 7 个 agent 工具全部注册，且与 `manifest.json` 的 `agentTools` 声明完全一致（无多注册、无漏注册）；`architecture.diagram` 通道对 20 节点夹具返回 `ok:true`、20 节点、未截断；未知通道返回 `unsupported_input`，非法 `decision` 被拒，读取失败带稳定错误码；`onUnload` 后命令与工具注册表均为空；27 个运行时 `.js` 模块全部可独立加载；三个命令实跑期间 `fs.writeText` 零调用——再次印证采集/校验路径不写任何字节。
-- **尚未验证**：P7 第 4 步的安装、启用、升级、禁用、卸载回归未做。注册表中 `local.architecture-visualization` 仍是 `source: "dev"`、版本 1.4.1 的条目（指向本仓库目录，随文件改动热重载，实际运行 1.5.1 代码）。安装正式包前需先移除该 dev 条目，否则同一 id 会有两条记录。此项待用户操作。
+- **安装与启用已由用户完成**：注册表条目已从 `source: "dev"`（1.4.1，指向仓库目录）变为 `source: "installed"`（1.5.1，`C:\Users\DIY\.pi-desktop\plugins\installed\local.architecture-visualization`），全表仅此一条同 id 记录。安装副本经逐字节比对与干净镜像 44/44 一致、与 `.piplug` 内 payload 44/44 一致，不含任何开发资产。`plugin.log` 时间线：`04:45:16.932Z` 最后一次 `development.plugin.reloaded` → `05:03:09.524Z` `plugin.uninstalled` → `05:03:26.280Z` `skills.register count=13` → `05:03:26.281Z` `load.success`；安装之后 `development.plugin.reloaded` 为 0 次，该插件再无任何 `plugin.api` 事件。**用户同时确认 A15（保存通道）不再触发重载、A16（关系图/变更集/漂移）可用。**
+- **尚未验证**：P7 第 4 步中剩余的升级、禁用、卸载回归未做（安装与启用已完成）。
 ## J. 已知不一致：invalid model 错误码有三种拼写
 
 - **事实**：同一个"模型未通过结构校验"的条件，在仓库里有三种错误码拼写——`src/host/read-model.js` 与 `src/host/save-model.js` 用大写 `'INVALID_MODEL'`；`src/core/export-preview.js`（以及 1.5.0 新增的 `diagram.js`、`drift.js`）用小写 `'invalid_model'`；`src/core/impact.js` 则把该条件报成 `'unsupported_input'`（`ERROR_CODE.INVALID_MODEL = CODES.UNSUPPORTED_INPUT`）。`error-codes.js` 里**没有** `INVALID_MODEL` 键，三种都是字面量。
 - **为什么现在不统一**：`error-codes.js` 文件头写明"已有错误码不得重命名或改用途"，而三种拼写都已在对外的测试与文档里被断言（`tests/save-model.test.js`、`tests/host-adapter.test.js`、`tests/analysis-tools.test.js`、`tests/export-preview.test.js`）。统一拼写是一次需要同步改调用方的协议变更，不能夹带在功能提交里。
 - **1.5.0 的选择**：两个新模块都在 `src/core/`，与最近的同层模块 `export-preview.js` 保持一致（小写 `'invalid_model'`），没有第四种拼写，也没有改动任何已有拼写。拆分事实已写进 `src/core/error-codes.js` 文件头，并有 `tests/error-code-spelling.test.js` 钉住三种拼写的实际分布，避免被静默改成第五种。
 - **后续**：需要一次专门的协议提交，选一种拼写并同步全部调用方与文档；在那之前，任何 switch 这个条件的地方必须同时接受三种。
+
+## L. 1.5.2（2026-09-24）官方插件中心打包审计
+
+把 1.5.1 的 `.piplug` 上传到官方插件中心时被拦下，审计报告 5 条阻断项：1 条 `MAN013` + 4 条 `SEC003`。审计规则不在宿主 `app.asar` 里（已用 asar 读取器全量搜过 `SEC003`/`MAN013`/`host-policy review`，0 命中），属服务端规则，因此以下定性基于代码事实而非规则源码。
+
+### SEC003：四条全是误报，已修
+
+- **报告位置**：`src/collectors/js-ts.js:22`、`:80`、`:85` 与 `src/collectors/manifests.js:17`，判词统一是"dynamic or remote code execution: dynamic module loading"。
+- **事实**：这个插件**没有任何动态模块加载**。`src/collectors/js-ts.js` 的 `require` 只有两条且都是字符串字面量（`require('../core/error-codes')`、`require('./ids')`）；`src/collectors/manifests.js` 里的 `ANALYZERS[basenameOf(file.path)](file, context)` 是冻结对象查表分发，不是模块加载。被点名的 4 处全是注释与字符串字面量——限制说明里的 `dynamic import() / require()`、两条诊断消息里的 `dynamic import()`/`require()`、go.mod 说明里的 `` `require ( ... )` ``。
+- **审计器行为**：纯文本扫描、没有解析器，因此注释和字符串里的调用形状同样计入。
+- **修法**：去掉散文里的调用形状，含义不变——`dynamic import() / require()` → `dynamic import or require`；诊断消息 → `dynamic import with a non-literal argument` 与 `dynamic require with a non-literal argument`；go.mod 说明 → `parenthesised require block`。测试原本就用正则断言（`/dynamic import/`、`/non-literal/`），不受影响。
+- **同类文本**：4 个 SKILL.md 的能力对照表里也有 `dynamic \`import()\`/\`require()\`` 之类写法。本次审计没有扫 `.md` 所以未报，但一并改为 `dynamic imports or requires`，避免以后扫描范围扩大再被拦一次。
+- **防回归**：`tests/package-scope.test.js` 新增"运行时集合里不能出现调用形状的动态模块加载"，扫全部 44 个出货文件；`js-ts.js` 头部另写了一条约束说明，防止后人把括号当笔误改回去。变异检查四种形状（注释、字符串、带空格、真实 `require(name)`）全部能让它变红。
+
+### MAN013：`agent.extension` 需要宿主策略审查，**未解决**
+
+- **报告**：`manifest.json: unknown permission requires host-policy review: agent.extension`。
+- **事实**：`agent.extension` 是宿主合法权限，不是插件乱写的。宿主 `out/main/index.js:70526` 的权限表有 `"agent.extension": "Run code inside the agent"`，风险说明在 `:70563`——"在 agent 进程内运行 ExtensionAPI 模块，拥有与 agent 自身工具相同的权限。只启用你信任的代码。"它也不在宿主的 `HIGH_RISK_PERMISSIONS` 里（`PluginCheck` 只把 `agent.prompt.inject`、`agent.tool.register`、`fs.write` 列为高风险）。市场插件 `cn.star.skill-learning` 的注册表条目同样带这个权限。所以这是**市场目录未登记该权限**，而非权限非法。
+- **用途**：唯一使用者是 `extensions/workflow-rule.mjs`（57 行、零依赖、不 import、不碰 fs/网络/时钟），它在每个 agent 回合的系统提示里追加一条固定路由规则，让"这是什么系统/影响什么/是否还准确"这类问题稳定命中 `Architecture Explore` 技能。没有它，路由只靠模型匹配 13 条技能描述里的 `explore` 那条（其 description 已覆盖全部问题类型）。
+- **取舍**：这是整个 manifest 里最敏感的权限（"与 agent 自身工具相同的权限"），换来的是一条提示词路由规则；而插件自身的定位是只读、证据驱动、不猜。市场要求人工审查，用户无法自行绕过。是否为此去掉 `agent.extension` 与 `contributes.agentExtensions`（运行时集合 44 → 43 文件）待用户决定。

@@ -52,7 +52,7 @@ Most first-pass nodes are `inferred` or `assumed`; that is the honest answer, no
 
 ## Tools
 
-- `architecture_collect` — cross-check an edge before asserting it. Returns a bounded summary (counts, up to 150 nodes and 300 edges, `unresolved`, `truncated`); the full model never leaves its process; writes nothing. It reads static imports, string-literal `require()`/`import()`, `package.json` names, compose `depends_on` and Kubernetes `kind`/`metadata.name` — not dynamic `import()`, tsconfig paths, re-export barrels, OpenAPI, CI or Terraform, which stay `inferred` until you read them.
+- `architecture_collect` — cross-check an edge before asserting it. Returns a bounded summary (counts, up to 150 nodes and 300 edges, `unresolved`, `truncated`); the full model never leaves its process; writes nothing. It reads static imports, string-literal require or import, `package.json` names, compose `depends_on` and Kubernetes `kind`/`metadata.name` — not dynamic imports or requires, tsconfig paths, re-export barrels, OpenAPI, CI or Terraform, which stay `inferred` until you read them.
 - `architecture_validate {path}` — the gate before claiming done. Structure and references only: it does not read source content and does not confirm truth.
 - `architecture_query`, `architecture_impact`, `architecture_compare`, `architecture_snapshot_plan` and `architecture_health` are read-only and bounded: none infers Git state, none writes, and a truncated result is never read as "no more relations".
 

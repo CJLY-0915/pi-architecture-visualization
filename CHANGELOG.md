@@ -3,6 +3,22 @@
 格式遵循 Keep a Changelog；版本号遵循语义化版本。本仓库在 1.0.0 之前没有变更记录，
 因此 1.0.0 条目覆盖的是整个开发周期的净结果，而不是相对某个已发布版本的增量。
 
+## [1.5.2] - 2026-09-24
+
+让 1.5.1 的包能过官方插件中心的打包审计。没有行为变化：修掉的四条全是审计器的误报。
+
+### 修复
+
+- **打包审计 SEC003 把注释和字符串里的 `import()` / `require()` 当成动态加载代码**。市场审计是纯文本扫描、没有解析器，于是 `src/collectors/js-ts.js` 的限制说明、两条诊断消息和 `src/collectors/manifests.js` 的 go.mod 说明都被判成"动态或远程代码执行"，包被拦下。实际上这个插件**没有任何动态模块加载**：全部 `require` 都是字符串字面量，`ANALYZERS[...]` 是冻结对象查表而非模块加载。改法是把散文里的调用形状去掉——`dynamic import() / require()` 改成 `dynamic import or require`，诊断消息同步改为 `dynamic import with a non-literal argument` 与 `dynamic require with a non-literal argument`，go.mod 说明改为 `parenthesised require block`。含义不变，测试原本就用正则断言（`/dynamic import/`、`/non-literal/`），不受影响。
+- 同类文本在 4 个 SKILL.md 的能力对照表里也有（`dynamic \`import()\`/\`require()\`` 等），本次审计没有扫 `.md` 所以没报，但一并改成 `dynamic imports or requires`，避免下次扩展扫描范围再被拦一次。
+
+### 工程细节
+
+- `tests/package-scope.test.js` 新增"运行时集合里不能出现调用形状的动态模块加载"：扫全部 44 个出货文件，命中 `import`/`require` 紧跟左括号且参数不是字符串字面量即失败。做过变异检查——把注释形状、字符串形状、带空格形状和一个真实的 `require(name)` 分别写回，四种都让该测试立刻变红，文件已字节级还原。
+- `src/collectors/js-ts.js` 头部加了一条约束说明：这个文件里"import"和"require"永远不跟左括号写，包括注释和诊断消息，原因是市场审计的 SEC003 是文本扫描。没有这条说明，下一个人会以为是笔误而改回去。
+- `node --test tests/*.test.js` 353 → **354**。
+- `manifest.json` 与 `package.json` 版本号 1.5.1 → 1.5.2。
+
 ## [1.5.1] - 2026-09-24
 
 把 1.5.0 新加的关系图改成能用的视图，并修掉一个自己造出来的排版缺陷。
