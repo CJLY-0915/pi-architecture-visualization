@@ -30,10 +30,10 @@ class Element {
   addEventListener(type, listener) { this.listeners.set(type, listener); }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   focus() {}
-  dispatch(type) {
+  dispatch(type, event = {}) {
     const listener = this.listeners.get(type);
     assert.ok(listener, `${this.id || 'element'} must handle ${type}`);
-    return listener({ preventDefault() {} });
+    return listener({ preventDefault() {}, ...event });
   }
 }
 
@@ -83,6 +83,13 @@ async function settle() {
 function containsText(element, text) {
   if (typeof element.textContent === 'string' && element.textContent.includes(text)) return true;
   return element.children.some((child) => containsText(child, text));
+}
+// Button labels are static markup and the harness double starts every element with empty text, so a label is asserted where it is written.
+function saveActionLabels() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
+  const match = /<div id="save-actions"[\s\S]*?<\/div>/.exec(html);
+  assert.ok(match, 'the save actions row must exist in the renderer markup');
+  return match[0];
 }
 
 test('panel loads a model, rejects ambiguous query input, and renders a bounded query result', async () => {
@@ -385,7 +392,8 @@ test('collecting reveals the save block, and a create goes through the host brid
   assert.equal(elements.get('save-state').dataset.kind, 'ready');
   assert.ok(containsText(elements.get('save-state'), '该路径不存在'));
   assert.equal(elements.get('save-create').hidden, false, 'a missing target offers a create');
-  assert.ok(containsText(elements.get('save-create'), 'architecture/model.json'));
+  assert.match(saveActionLabels(), />创建<\/button>/, 'a write button names the action, never the path');
+  assert.ok(containsText(elements.get('save-state'), 'architecture/model.json'), 'the target path stays visible next to the button');
   assert.equal(elements.get('save-overwrite').hidden, true, 'there is nothing to overwrite yet');
   assert.equal(elements.get('save-snapshot').hidden, true);
 
@@ -439,6 +447,13 @@ test('an existing target hides create and offers a snapshot and an explicit over
   assert.equal(elements.get('save-create').hidden, true, 'an existing target must not offer a blind create');
   assert.equal(elements.get('save-snapshot').hidden, false);
   assert.equal(elements.get('save-overwrite').hidden, false);
+  // The snapshot path is 88 characters; in a button label it pushed the other
+  // two write buttons out of the row, so the label stays a verb and the path
+  // is carried by the state line above.
+  assert.match(saveActionLabels(), />另存为快照<\/button>/, 'the snapshot button must not carry the path in its label');
+  assert.ok(!/architecture\//.test(saveActionLabels()), 'no save button label may interpolate a path');
+  assert.ok(containsText(elements.get('save-state'), snapshotPath));
+  assert.equal(elements.get('save-snapshot').title, `写入 ${snapshotPath}`);
 
   // A snapshot leaves the standard path alone, so the panel keeps treating the
   // scan as unsaved instead of pretending a file changed.
@@ -512,7 +527,7 @@ test('panel draws a diagram, focuses a node through the index, and keeps the lim
   assert.equal(drawn.channel, 'architecture.diagram');
   assert.equal(drawn.payload.path, 'architecture/model.json');
   assert.equal(elements.get('diagram-status').dataset.kind, 'ready');
-  assert.match(elements.get('diagram-stage').innerHTML, /data-node-id="container\.api"/);
+  assert.match(elements.get('diagram-surface').innerHTML, /data-node-id="container\.api"/);
   assert.ok(containsText(elements.get('diagram-results'), '确定性分层布局'));
   assert.equal(elements.get('diagram-clear').hidden, true, 'no focus was requested, so there is nothing to clear');
 
@@ -528,6 +543,91 @@ test('panel draws a diagram, focuses a node through the index, and keeps the lim
   await settle();
   assert.equal(calls.at(-1).payload.focus, undefined, 'clearing the focus must not send one');
   assert.equal(elements.get('diagram-clear').hidden, true);
+});
+
+test('panel pans and zooms the diagram as view state and never touches the model', async () => {
+  const harness = createPanelHarness((channel, payload) => {
+    if (channel === 'workspace.get') return { path: 'E:/work/demo' };
+    if (channel === 'fs.stat') return { size: Buffer.byteLength(JSON.stringify(model), 'utf8') };
+    if (channel === 'fs.readText') return JSON.stringify(model);
+    if (channel === 'architecture.diagram') {
+      const focused = typeof payload === 'object' && payload !== null && typeof payload.focus === 'string';
+      return {
+        ok: true,
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 656 390"><g class="dg-node" data-node-id="container.api" data-emphasis="on"><rect/></g><g class="dg-node" data-node-id="module.invoice" data-emphasis="off"><rect/></g></svg>',
+        nodes: [{ id: 'container.api', name: 'API', type: 'container', status: 'confirmed', depth: 0 }, { id: 'module.invoice', name: 'Invoice', type: 'module', status: 'confirmed', depth: 1 }],
+        edges: [{ id: 'edge.api.invoice', source: 'container.api', target: 'module.invoice', type: 'calls' }],
+        focus: focused ? { id: 'container.api', name: 'API', neighbours: ['module.invoice'] } : null,
+        truncated: false, omitted: { nodes: 0, edges: 0 },
+        layout: { layers: 2, width: 656, height: 390, maxNodes: 150, maxEdges: 300 },
+        limitations: ['确定性分层布局，不是运行态拓扑。'],
+      };
+    }
+    throw new Error(`unexpected panel channel: ${channel}`);
+  });
+  const { elements, calls } = harness;
+  const view = () => {
+    const stage = elements.get('diagram-stage');
+    return { scale: stage.attributes.get('data-diagram-scale'), x: stage.attributes.get('data-diagram-x'), y: stage.attributes.get('data-diagram-y'), panning: stage.attributes.get('data-diagram-panning') };
+  };
+
+  // The view controls describe a diagram, so they stay out of the way until one exists.
+  assert.equal(elements.get('diagram-zoom-in').hidden, true);
+  assert.equal(elements.get('diagram-zoom-out').hidden, true);
+  assert.equal(elements.get('diagram-reset-view').hidden, true);
+  elements.get('diagram-stage').dispatch('wheel', { deltaY: -120 });
+  assert.equal(view().scale, '1', 'a wheel event with no diagram on screen must not move the view');
+
+  elements.get('load-form').dispatch('submit');
+  await settle();
+  elements.get('diagram-draw').dispatch('click');
+  await settle();
+  assert.equal(elements.get('diagram-zoom-in').hidden, false, 'a drawn diagram offers the view controls');
+  assert.equal(elements.get('diagram-reset-view').hidden, false);
+  assert.deepEqual([view().scale, view().x, view().y], ['1', '0', '0']);
+
+  elements.get('diagram-zoom-in').dispatch('click');
+  assert.equal(view().scale, '1.25');
+  elements.get('diagram-zoom-out').dispatch('click');
+  assert.equal(view().scale, '1');
+  for (let index = 0; index < 12; index += 1) elements.get('diagram-zoom-in').dispatch('click');
+  assert.equal(view().scale, '4', 'zoom must stop at the upper clamp instead of running away');
+  for (let index = 0; index < 20; index += 1) elements.get('diagram-zoom-out').dispatch('click');
+  assert.equal(view().scale, '0.25', 'zoom must stop at the lower clamp');
+  elements.get('diagram-reset-view').dispatch('click');
+  assert.deepEqual([view().scale, view().x, view().y], ['1', '0', '0']);
+
+  // A drag moves the canvas. Movement inside the slop does not, which is what
+  // keeps a click on a node from being read as a pan. Each move is applied as a
+  // delta, so a pointer that leaves and re-enters the stage cannot fling the
+  // canvas by the distance it travelled outside.
+  elements.get('diagram-stage').dispatch('pointerdown', { clientX: 100, clientY: 100 });
+  assert.equal(view().panning, 'true', 'the stage must report that it is being dragged');
+  elements.get('diagram-stage').dispatch('pointermove', { clientX: 101, clientY: 101 });
+  assert.deepEqual([view().x, view().y], ['0', '0'], 'movement inside the slop must not count as a pan');
+  elements.get('diagram-stage').dispatch('pointermove', { clientX: 130, clientY: 115 });
+  elements.get('diagram-stage').dispatch('pointermove', { clientX: 160, clientY: 130 });
+  assert.deepEqual([view().x, view().y], ['60', '30']);
+  elements.get('diagram-stage').dispatch('pointerup', {});
+  assert.equal(view().panning, 'false');
+
+  // A pointer released outside the stage sends no pointerup, so the buttons
+  // dropping to zero is what ends the drag instead of leaving it stuck on.
+  elements.get('diagram-stage').dispatch('pointerdown', { clientX: 10, clientY: 10 });
+  elements.get('diagram-stage').dispatch('pointermove', { clientX: 80, clientY: 40, buttons: 0 });
+  assert.equal(view().panning, 'false', 'a move with no button held must end the drag');
+  assert.deepEqual([view().x, view().y], ['60', '30'], 'ending a drag must not move the canvas');
+
+  // A wheel event with no usable delta is ignored rather than read as zero.
+  elements.get('diagram-stage').dispatch('wheel', { deltaY: undefined });
+  assert.equal(view().scale, '1');
+
+  // The view belongs to one drawing: redrawing for a new focus drops it.
+  elements.get('diagram-index').children[0].dispatch('click');
+  await settle();
+  assert.equal(calls.at(-1).payload.focus, 'container.api');
+  assert.deepEqual([view().scale, view().x, view().y], ['1', '0', '0'], 'a redraw must not inherit the previous offset');
+  assert.equal(elements.get('diagram-zoom-in').hidden, false, 'the redrawn diagram keeps its view controls');
 });
 
 test('panel reports a change set as incomplete when a path matched nothing', async () => {

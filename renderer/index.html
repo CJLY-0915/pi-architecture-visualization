@@ -133,7 +133,8 @@
     .save-state[data-kind="warning"] { border-left-color: var(--amber); color: #e9ca90; background: #17140f; }
     .save-state[data-kind="error"] { border-left-color: var(--danger); color: #f0b6b6; background: #1b1218; }
     .save-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .save-actions .button { min-height: 36px; }
+    /* A write button names the action, never the path: the target lives in the state line above and in the result card. A label that carries a path would stretch its siblings out of the row, so anything long that lands here is cut instead. */
+    .save-actions .button { min-height: 36px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .button.danger { border-color: #70313a; background: transparent; color: #f0b6b6; }
     .button.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); background: #1b1218; }
     @media (max-width: 660px) { .save-form { grid-template-columns: 1fr; } }
@@ -182,7 +183,9 @@
     .diagram > header code, .drift > header code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: var(--evidence); }
     .diagram-controls, .drift-controls { display: flex; flex-wrap: wrap; gap: 8px; }
     .diagram-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 1fr); gap: 12px; margin-top: 12px; }
-    .diagram-stage { min-height: 260px; max-height: 520px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #0b111b; }
+    .diagram-stage { min-height: 260px; max-height: 520px; overflow: hidden; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #0b111b; cursor: grab; touch-action: none; user-select: none; }
+    .diagram-stage[data-diagram-panning="true"] { cursor: grabbing; }
+    .diagram-surface { transform-origin: 0 0; }
     .diagram-stage svg { display: block; max-width: 100%; height: auto; }
     .diagram-index { display: grid; align-content: start; gap: 4px; max-height: 520px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper-inset); }
     .diagram-node { padding: 6px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; text-align: left; cursor: pointer; }
@@ -294,14 +297,17 @@
         </aside>
       </section>
       <section id="diagram" class="diagram" aria-labelledby="diagram-heading">
-        <header><div><h2 id="diagram-heading">关系图</h2><p>按 <code>parentId</code> 链分层的确定性布局。点图中节点或右侧索引，可聚焦它的直接邻居。这是模型结构图，不是运行态拓扑，也没有读取任何源文件。</p></div><span class="read-only">内存渲染</span></header>
+        <header><div><h2 id="diagram-heading">关系图</h2><p>按 <code>parentId</code> 链分层的确定性布局。点图中节点或右侧索引，可聚焦它的直接邻居；在图上按住拖拽可平移，滚轮或右侧按钮可缩放。这是模型结构图，不是运行态拓扑，也没有读取任何源文件。</p></div><span class="read-only">内存渲染</span></header>
         <div class="diagram-controls">
           <button id="diagram-draw" class="button secondary" type="button">绘制关系图</button>
           <button id="diagram-clear" class="button secondary" type="button" hidden>清除焦点</button>
+          <button id="diagram-zoom-in" class="button secondary" type="button" hidden aria-label="放大关系图">放大</button>
+          <button id="diagram-zoom-out" class="button secondary" type="button" hidden aria-label="缩小关系图">缩小</button>
+          <button id="diagram-reset-view" class="button secondary" type="button" hidden aria-label="重置关系图视图">重置视图</button>
         </div>
         <p id="diagram-status" class="analysis-status" data-kind="idle" role="status" aria-live="polite">尚未绘制。点“绘制关系图”即可，不需要额外参数。</p>
         <div class="diagram-body">
-          <div id="diagram-stage" class="diagram-stage" aria-live="polite"></div>
+          <div id="diagram-stage" class="diagram-stage" aria-live="polite" data-diagram-scale="1" data-diagram-x="0" data-diagram-y="0" data-diagram-panning="false"><div id="diagram-surface" class="diagram-surface"></div></div>
           <div id="diagram-index" class="diagram-index" role="list" aria-label="图中节点"></div>
         </div>
         <div id="diagram-results" class="analysis-results" aria-live="polite"></div>
@@ -352,7 +358,8 @@
       queryForm: $("query-form"), queryMode: $("query-mode"), queryTargets: $("query-targets"), queryTo: $("query-to"), impactForm: $("impact-form"), impactTargets: $("impact-targets"), impactDirection: $("impact-direction"), compareForm: $("compare-form"), compareBefore: $("compare-before"), compareAfter: $("compare-after"), exportForm: $("export-form"), exportFormat: $("export-format"), exportFocus: $("export-focus"), exportLevel: $("export-level"), healthForm: $("health-form"), analysisStatus: $("analysis-status"), analysisResults: $("analysis-results"),
         collectForm: $("collect-form"), collectRoots: $("collect-roots"), collectMax: $("collect-max"), collectSubmit: $("collect-submit"), collectStatus: $("collect-status"), collectResults: $("collect-results"),
         save: $("save"), savePath: $("save-path"), saveCheck: $("save-check"), saveState: $("save-state"), saveCreate: $("save-create"), saveSnapshot: $("save-snapshot"), saveOverwrite: $("save-overwrite"), saveResults: $("save-results"),
-        diagramDraw: $("diagram-draw"), diagramClear: $("diagram-clear"), diagramStatus: $("diagram-status"), diagramStage: $("diagram-stage"), diagramIndex: $("diagram-index"), diagramResults: $("diagram-results"),
+        diagramDraw: $("diagram-draw"), diagramClear: $("diagram-clear"), diagramStatus: $("diagram-status"), diagramStage: $("diagram-stage"), diagramSurface: $("diagram-surface"), diagramIndex: $("diagram-index"), diagramResults: $("diagram-results"),
+        diagramZoomIn: $("diagram-zoom-in"), diagramZoomOut: $("diagram-zoom-out"), diagramResetView: $("diagram-reset-view"),
         changesetForm: $("changeset-form"), changesetPaths: $("changeset-paths"), changesetDirection: $("changeset-direction"),
         driftRun: $("drift-run"), driftStatus: $("drift-status"), driftResults: $("drift-results")
       };
@@ -401,7 +408,8 @@
       function saveRequest(extra) { return { ...extra, model: state.model }; }
       function countsText(counts) { return counts ? `${counts.nodes} 节点 / ${counts.edges} 关系 / ${counts.evidence} 证据` : "未知"; }
       function targetStateText(value) { return value === "missing" ? "不存在" : value === "present" ? "已存在" : "无法确认"; }
-      function showSaveButton(button, visible, label) { button.hidden = !visible; if (label) button.textContent = label; }
+      // A write button names the action, never the path. The target path is already spelled out in the state line above and again in the result card, so a label that repeats it only stretches the row out of the panel.
+      function showSaveButton(button, visible) { button.hidden = !visible; }
       function setSaveBusy(busy) { [ui.saveCheck, ui.saveCreate, ui.saveSnapshot, ui.saveOverwrite].forEach((button) => { button.disabled = busy; }); }
       function renderSavePlan(plan) {
         const present = plan.targetState === "present";
@@ -415,9 +423,10 @@
         else if (plan.existing) lines.push("现有文件不可读或不是合法 JSON；覆盖会用本次采集结果替换它。");
         lines.push(`快照路径（内容寻址）：${plan.snapshotPath}${plan.snapshotPresent ? "（已存在，同样内容不会重复写入）" : ""}`);
         setSaveStatus(present || plan.targetState === "unknown" ? "warning" : "ready", lines.join(" "));
-        showSaveButton(ui.saveCreate, plan.targetState === "missing", `创建 ${plan.path}`);
-        showSaveButton(ui.saveSnapshot, plan.targetState !== "missing", `另存为快照 ${plan.snapshotPath}`);
-        showSaveButton(ui.saveOverwrite, present, `覆盖写入 ${plan.path}`);
+        showSaveButton(ui.saveCreate, plan.targetState === "missing");
+        showSaveButton(ui.saveSnapshot, plan.targetState !== "missing");
+        showSaveButton(ui.saveOverwrite, present);
+        ui.saveSnapshot.title = `写入 ${plan.snapshotPath}`;
       }
       function renderSaveFailure(result) {
         [ui.saveCreate, ui.saveSnapshot, ui.saveOverwrite].forEach((button) => { button.hidden = true; });
@@ -476,15 +485,81 @@
       // part of the request, which keeps one renderer for every state.
       function setDiagramStatus(kind, message) { ui.diagramStatus.dataset.kind = kind; ui.diagramStatus.textContent = message; }
       function setDriftStatus(kind, message) { ui.driftStatus.dataset.kind = kind; ui.driftStatus.textContent = message; }
+      // Pan and zoom are view state, never model state. They are dropped on every redraw so an offset framed for one diagram cannot outlive the content it was meant to frame, and the numbers are mirrored onto the stage's data attributes so the current view stays observable without parsing a transform string.
+      const DIAGRAM_MIN_SCALE = 0.25;
+      const DIAGRAM_MAX_SCALE = 4;
+      const DIAGRAM_ZOOM_STEP = 1.25;
+      const DIAGRAM_DRAG_SLOP = 3;
+      const diagramView = { scale: 1, x: 0, y: 0 };
+      let diagramDragging = false;
+      let diagramDragMoved = false;
+      const diagramDrag = { originX: 0, originY: 0, lastX: 0, lastY: 0 };
+      function clampDiagramScale(scale) {
+        if (!Number.isFinite(scale)) return 1;
+        return Math.min(DIAGRAM_MAX_SCALE, Math.max(DIAGRAM_MIN_SCALE, scale));
+      }
+      function applyDiagramView() {
+        diagramView.scale = clampDiagramScale(diagramView.scale);
+        if (!Number.isFinite(diagramView.x)) diagramView.x = 0;
+        if (!Number.isFinite(diagramView.y)) diagramView.y = 0;
+        const x = Math.round(diagramView.x);
+        const y = Math.round(diagramView.y);
+        ui.diagramStage.setAttribute("data-diagram-scale", String(diagramView.scale));
+        ui.diagramStage.setAttribute("data-diagram-x", String(x));
+        ui.diagramStage.setAttribute("data-diagram-y", String(y));
+        ui.diagramStage.setAttribute("data-diagram-panning", String(diagramDragging));
+        ui.diagramSurface.style.setProperty("transform", `translate(${x}px, ${y}px) scale(${diagramView.scale})`);
+      }
+      // The transform is anchored at the surface's own top-left, so a screen point has to be rebased onto the surface's layout box rather than the stage's border box: the two differ by the stage's border and padding. getBoundingClientRect reports the transformed box, and because the origin is 0 0 the translate is exactly what moved it, so subtracting the current offset recovers the layout position.
+      function diagramAnchor(clientX, clientY) {
+        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+        if (typeof ui.diagramSurface.getBoundingClientRect !== "function") return null;
+        const rect = ui.diagramSurface.getBoundingClientRect();
+        const left = rect.left - diagramView.x;
+        const top = rect.top - diagramView.y;
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+        return { x: clientX - left, y: clientY - top };
+      }
+      // Zooming about a point keeps that point where it is, which is the only behaviour that does not feel like the canvas ran away. The wheel uses the pointer; a button has none, so it uses the middle of the stage, where the user is looking.
+      function diagramStageCentre() {
+        if (typeof ui.diagramStage.getBoundingClientRect !== "function") return null;
+        const rect = ui.diagramStage.getBoundingClientRect();
+        if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width <= 0 || rect.height <= 0) return null;
+        return diagramAnchor(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      }
+      function zoomDiagram(factor, anchor) {
+        const previous = diagramView.scale;
+        const next = clampDiagramScale(previous * factor);
+        if (next === previous) return;
+        if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+          const ratio = next / previous;
+          diagramView.x = anchor.x - (anchor.x - diagramView.x) * ratio;
+          diagramView.y = anchor.y - (anchor.y - diagramView.y) * ratio;
+        }
+        diagramView.scale = next;
+        applyDiagramView();
+      }
+      function resetDiagramView() {
+        diagramView.scale = 1; diagramView.x = 0; diagramView.y = 0;
+        diagramDragging = false; diagramDragMoved = false;
+        applyDiagramView();
+      }
+      // The view controls only mean something once there is a diagram to move.
+      function setDiagramViewControlsVisible(visible) {
+        ui.diagramZoomIn.hidden = !visible; ui.diagramZoomOut.hidden = !visible; ui.diagramResetView.hidden = !visible;
+      }
       function resetDiagramAndDrift() {
         state.diagramFocus = null;
-        ui.diagramStage.innerHTML = ""; ui.diagramIndex.replaceChildren(); ui.diagramResults.replaceChildren(); ui.diagramClear.hidden = true;
+        ui.diagramSurface.innerHTML = ""; ui.diagramIndex.replaceChildren(); ui.diagramResults.replaceChildren(); ui.diagramClear.hidden = true;
+        resetDiagramView(); setDiagramViewControlsVisible(false);
         setDiagramStatus("idle", "尚未绘制。点“绘制关系图”即可，不需要额外参数。");
         ui.driftResults.replaceChildren();
         setDriftStatus("idle", "尚未检查。漂移会重新扫描一次工作区，只读、不写入。");
       }
       function renderDiagram(result) {
-        ui.diagramStage.innerHTML = result.svg;
+        ui.diagramSurface.innerHTML = result.svg;
+        resetDiagramView();
+        setDiagramViewControlsVisible(true);
         ui.diagramIndex.replaceChildren();
         array(result.nodes).forEach((node) => {
           const button = document.createElement("button");
@@ -503,14 +578,16 @@
       // A browser gives us querySelectorAll; a test double does not, and
       // guessing either way would be a lie about what the user can click.
       function attachDiagramClicks() {
-        if (!ui.diagramStage.querySelectorAll) return;
-        ui.diagramStage.querySelectorAll("[data-node-id]").forEach((element) => {
+        if (!ui.diagramSurface.querySelectorAll) return;
+        ui.diagramSurface.querySelectorAll("[data-node-id]").forEach((element) => {
           const id = element.getAttribute("data-node-id");
-          element.addEventListener("click", () => { void drawDiagram(id); });
+          // A drag ends in a click, so the flag raised while panning is what keeps a pan from being read as a node selection.
+          element.addEventListener("click", () => { if (diagramDragMoved) return; void drawDiagram(id); });
         });
       }
       function renderDiagramFailure(result) {
-        ui.diagramStage.innerHTML = ""; ui.diagramIndex.replaceChildren(); ui.diagramResults.replaceChildren();
+        ui.diagramSurface.innerHTML = ""; ui.diagramIndex.replaceChildren(); ui.diagramResults.replaceChildren();
+        resetDiagramView(); setDiagramViewControlsVisible(false);
         const error = result && result.error ? `${result.error.code || "diagram_failed"}：${result.error.message || "没有生成关系图。"}` : "绘图调用失败，未产生完整结果。";
         ui.diagramResults.append(resultCard("未完成的绘图", [error], "error"));
         setDiagramStatus("error", error);
@@ -527,13 +604,51 @@
           state.diagramFocus = result.focus ? result.focus.id : null;
           ui.diagramClear.hidden = !state.diagramFocus;
           renderDiagram(result);
-          setDiagramStatus("ready", state.diagramFocus ? `已聚焦 ${state.diagramFocus}；点其他节点可切换焦点。` : "关系图已绘制。点图中节点或右侧索引，可聚焦它的直接邻居。");
+          setDiagramStatus("ready", state.diagramFocus ? `已聚焦 ${state.diagramFocus}；点其他节点可切换焦点。` : "关系图已绘制。点图中节点或右侧索引可聚焦直接邻居；按住拖拽平移，滚轮或按钮缩放。");
         } catch (error) {
           renderDiagramFailure({ ok: false, error: { code: "panel_bridge_failed", message: String(error && error.message || error) } });
         } finally { ui.diagramDraw.disabled = false; }
       }
       ui.diagramDraw.addEventListener("click", () => { void drawDiagram(state.diagramFocus); });
       ui.diagramClear.addEventListener("click", () => { state.diagramFocus = null; ui.diagramClear.hidden = true; if (state.model) void drawDiagram(null); });
+      ui.diagramZoomIn.addEventListener("click", () => { zoomDiagram(DIAGRAM_ZOOM_STEP, diagramStageCentre()); });
+      ui.diagramZoomOut.addEventListener("click", () => { zoomDiagram(1 / DIAGRAM_ZOOM_STEP, diagramStageCentre()); });
+      ui.diagramResetView.addEventListener("click", () => { resetDiagramView(); });
+      // The initial view is published here too, so the numbers on the stage are observable from the first paint instead of appearing only after the first zoom.
+      applyDiagramView();
+      setDiagramViewControlsVisible(false);
+      // Wheel and pointer input are capability-guarded rather than assumed: a test double has neither getBoundingClientRect nor clientX, and pretending otherwise would leave the fallback path invisible and untested.
+      ui.diagramStage.addEventListener("wheel", (event) => {
+        if (!ui.diagramSurface.innerHTML) return;
+        const delta = event && event.deltaY;
+        if (!Number.isFinite(delta)) return;
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        zoomDiagram(delta < 0 ? DIAGRAM_ZOOM_STEP : 1 / DIAGRAM_ZOOM_STEP, diagramAnchor(event.clientX, event.clientY));
+      }, { passive: false });
+      // Panning is incremental and never captures the pointer. A pointer released outside the stage sends no pointerup here, so the buttons dropping to zero is the only honest signal that the drag ended; and applying each move as a delta means re-entering the stage cannot fling the canvas by the distance travelled outside it.
+      ui.diagramStage.addEventListener("pointerdown", (event) => {
+        if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+        diagramDragging = true; diagramDragMoved = false;
+        diagramDrag.originX = event.clientX; diagramDrag.originY = event.clientY;
+        diagramDrag.lastX = event.clientX; diagramDrag.lastY = event.clientY;
+        applyDiagramView();
+      });
+      ui.diagramStage.addEventListener("pointermove", (event) => {
+        if (!diagramDragging) return;
+        if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+        if (event.buttons === 0) { endDiagramDrag(); return; }
+        // Slop is measured from where the drag began, so a few pixels of movement cannot turn a click on a node into a pan. Those pixels are dropped rather than banked, which is what keeps the canvas tracking the pointer exactly once the drag is real.
+        if (!diagramDragMoved && Math.abs(event.clientX - diagramDrag.originX) < DIAGRAM_DRAG_SLOP && Math.abs(event.clientY - diagramDrag.originY) < DIAGRAM_DRAG_SLOP) return;
+        const dx = event.clientX - diagramDrag.lastX;
+        const dy = event.clientY - diagramDrag.lastY;
+        diagramDrag.lastX = event.clientX; diagramDrag.lastY = event.clientY;
+        diagramDragMoved = true;
+        diagramView.x += dx; diagramView.y += dy;
+        applyDiagramView();
+      });
+      const endDiagramDrag = () => { if (!diagramDragging) return; diagramDragging = false; applyDiagramView(); };
+      ui.diagramStage.addEventListener("pointerup", endDiagramDrag);
+      ui.diagramStage.addEventListener("pointercancel", endDiagramDrag);
       // Drift is decided on file paths alone. It says nothing about content, so
       // the panel repeats that limit next to every verdict instead of letting a
       // green result be read as "the model is still true".

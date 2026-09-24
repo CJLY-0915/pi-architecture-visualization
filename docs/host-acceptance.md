@@ -24,7 +24,7 @@
 | A13 | 右侧停靠视图 | 在插件页授予 `ui.view` 后重载插件；在右侧工作面板点开 Architecture 标签 | 视图出现并与浮动面板同样可读模型、可跑查询；无残留注册、无重复面板 | 注册表 `permissions`/`capabilities` + `plugin.log`（授权与重载）；工作面板（视图本身） | ✅ 用户本轮确认：`ui.view` 授权生效、插件无错误重载（注册表 `permissions` 含 `ui.view`、`capabilities` 含 `views`；`plugin.log` 中 `plugin.uninstalled` → `skills.register count=13` → `load.success` → `reload.success`）；标签页已打开，读取模型、查询与影响分析均正常（2026-09-23，用户证言）。未单独检查：重复打开/关闭后的残留注册与重复面板（模型记 `unknown:docked-view-lifecycle-residue`） |
 | A14 | 面板采集并生成模型 | 不载入模型，直接在浮动面板或停靠视图点"采集并生成模型" | 返回有界摘要（计数、覆盖账本、盲区、上限）并当场生成完整模型；阅读器立即可用，图查询/影响/健康/导出都在这份内存模型上跑；非正整数文件预算本地拒绝；结构性不合格的模型被拒绝而非分析 | 面板行为 + `tests/host-adapter.test.js`、`tests/panel-interactions.test.js` | ⬜ 本轮新增，待宿主确认 |
 | A15 | 面板保存采集模型 | 授予 `fs.write` 并重载；点"采集并生成模型"→"确认目标状态"→"创建"；再点一次确认 `TARGET_EXISTS` 而不是覆盖 | 工作区出现 `architecture/model.json`；面板 `model-source` 变为"来自文件 …"；保存区块隐藏；已有目标时只给快照与显式覆盖；`plugin.log` 无 `PERMISSION_DENIED` | 注册表 `permissions`（含 `fs.write`/`clipboard.write`）+ `plugin.log` + 工作面板 + 工作区文件 | ⬜ 本轮新增，待宿主确认 |
-| A16 | 面板关系图 / 变更集 / 漂移 | 载入或采集一个模型后，依次点"绘制关系图"、点图中一个节点、点"清除焦点"、在"变更集影响"里粘一串路径提交、点"检查漂移" | 关系图渲染出 `<svg>` 且节点可点；焦点切换后出现"清除焦点"；变更集报告"未解析 N 个 / 结论完整：是或否"；漂移给出 `aligned`/`drifted`/`incomplete` 之一并附"不读 Git、不读文件内容"；三者都不产生工作区写入 | 工作面板 + 工作区（确认无新文件）+ `plugin.log`（确认无 `PERMISSION_DENIED`） | ⬜ 1.5.0 新增，待宿主确认 |
+| A16 | 面板关系图 / 变更集 / 漂移 | 载入或采集一个模型后，依次点"绘制关系图"、在图上按住拖拽平移、用滚轮和"放大/缩小"缩放并点"重置视图"、点图中一个节点、点"清除焦点"、在"变更集影响"里粘一串路径提交、点"检查漂移" | 关系图渲染出 `<svg>` 且节点可点；拖拽后面画随之移动、滚轮缩放后点"重置视图"回到初始画面；焦点切换后出现"清除焦点"；变更集报告"未解析 N 个 / 结论完整：是或否"；漂移给出 `aligned`/`drifted`/`incomplete` 之一并附"不读 Git、不读文件内容"；三者都不产生工作区写入 | 工作面板 + 工作区（确认无新文件）+ `plugin.log`（确认无 `PERMISSION_DENIED`） | ⬜ 1.5.0 新增、1.5.1 补充平移缩放，待宿主确认 |
 > A7–A12 由用户在本轮确认通过。本轮未保留日志或截图副本，因此证据列是用户证言而非日志摘录；如需日志级证据，复现时取 `logs/app/plugin.log` 与 `plugins/installed` 目录状态即可补行。
 
 ## B. 场景技能验收（对应 S3）
@@ -119,6 +119,12 @@
 - **新集合的干净镜像 `PluginCheck` 待重跑**：运行时集合 41 → 44 文件（新增 `src/core/diagram.js`、`src/core/drift.js`、`src/host/drift-check.js`）。此前 40 文件集合实测无错误，44 文件集合尚未重跑。
 - **面板 DOM 变化**：`renderer/index.html` 新增 `#diagram`/`#drift` 两个 section、`#changeset-form` 一个分析表单；`load-form` 从页面顶部移到 `section#collect` 之后。`tests/panel-interactions.test.js` 的 `querySelectorAll` 硬编码 id 列表已同步加入变更集控件，否则 `setAnalysisBusy` 不会禁用它们。
 
+## J-bis. 1.5.1（2026-09-24）关系图平移缩放 / 保存按钮排版
+- **做了什么**：关系图新增一层与模型无关的平移缩放视图状态（`{scale, x, y}`，0.25–4，步进 1.25）。滚轮以指针为锚点，按钮以画布中心为锚点；指针拖拽按增量累加位移；拖拽超过 3px 才记为平移，落在节点上的点击仍然是点击。三个写入按钮的标签改回纯动词，修掉"另存为快照"把 88 字符快照路径塞进标签、把保存行撑出面板的问题。
+- **为什么不复用 `setPointerCapture`**：它要求 pointerId 当前有效，而一次"在舞台外松手"根本没有 `pointerup` 到达舞台。改用两个更稳的信号——位移按增量累加（指针移出再移回不会把画布甩出移动距离），以及 `buttons` 归零即结束拖拽。两者都不依赖可能不成立的宿主能力，也不吞异常。
+- **验证（本地）**：`node --test tests/*.test.js` 350 → **351**，全绿。新增一条面板交互测试覆盖控件显隐、缩放上下限、拖拽与 slop、`buttons` 归零结束拖拽、滚轮缺 `deltaY` 时不动视图、重绘不继承旧偏移。
+- **验证（浏览器实测）**：用带桥接桩的预览页在真实 Chromium 里跑过。模型载入后绘图，`data-diagram-scale` 1 → 1.25 → 1.5625，SVG 渲染宽度 442 → 690.6px（画布 1504px、舞台 458px，默认视图仍整体可见）。滚轮以指针为锚：节点中心在两次缩放后仍停在 (97, 4019)；按钮以舞台中心为锚：连续五档缩放（进/进/退/退/退）后，舞台中心对应的内容点漂移 ≤0.3px。真实鼠标拖拽 (40, 30) 得到 `x=40, y=30`；拖拽落在节点上不改变焦点，无拖拽的点击正常聚焦；`pointermove` 带 `buttons: 0` 时拖拽结束且画布不动。三个写入按钮宽 97/84px，`save-actions` 的 `scrollWidth` 与 `clientWidth` 相等（456=456），不再溢出。**预览页写在 gitignore 的 `Temp/` 下，验证后已删除。**
+- **尚未真机确认**：与 1.5.0 相同，关系图/变更集/漂移三个通道仍未在真实 PI-Desktop 面板点过（A16 仍为 ⬜）；本次的平移缩放同样只在本机浏览器验证过，未在宿主面板里拖过。
 ## J. 已知不一致：invalid model 错误码有三种拼写
 
 - **事实**：同一个"模型未通过结构校验"的条件，在仓库里有三种错误码拼写——`src/host/read-model.js` 与 `src/host/save-model.js` 用大写 `'INVALID_MODEL'`；`src/core/export-preview.js`（以及 1.5.0 新增的 `diagram.js`、`drift.js`）用小写 `'invalid_model'`；`src/core/impact.js` 则把该条件报成 `'unsupported_input'`（`ERROR_CODE.INVALID_MODEL = CODES.UNSUPPORTED_INPUT`）。`error-codes.js` 里**没有** `INVALID_MODEL` 键，三种都是字面量。
