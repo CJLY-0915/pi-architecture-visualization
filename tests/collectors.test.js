@@ -572,3 +572,28 @@ test('an empty listing is still reported as complete', async () => {
   assert.equal(result.coverage.complete, true);
   assert.equal(codesOf(result.diagnostics, CODES.NO_FILES_IN_SCOPE).length, 0);
 });
+
+test('a collected model carries the workspace display name, not just the opaque id', async () => {
+  const { result } = await collect(fixtureEntries(), {
+    projectId: '431709df-a724-4e91-ac3d-7fa82e6c2688',
+    projectName: 'architecture-visualization',
+    generatedAt: BASE_OPTIONS.generatedAt,
+  });
+  assert.equal(result.ok, true);
+  // The id stays the stable identity the host reported; the name is what a
+  // person recognises. A panel that only had the id showed a raw UUID as the
+  // project title, which told the user nothing about what they had just scanned.
+  assert.equal(result.model.project.id, '431709df-a724-4e91-ac3d-7fa82e6c2688');
+  assert.equal(result.model.project.name, 'architecture-visualization');
+
+  // Omitting the name leaves the object exactly as before, so existing models
+  // and callers are unaffected.
+  const bare = await collect(fixtureEntries(), { ...BASE_OPTIONS });
+  assert.equal(bare.result.ok, true);
+  assert.deepEqual(bare.result.model.project, { id: BASE_OPTIONS.projectId });
+
+  // A blank name is reported rather than silently written as an empty string.
+  const blank = await collect(fixtureEntries(), { ...BASE_OPTIONS, projectName: '   ' });
+  assert.equal(blank.result.ok, false);
+  assert.ok(blank.result.diagnostics.some((entry) => entry.path === 'options.projectName' && entry.code === 'invalid_option'));
+});

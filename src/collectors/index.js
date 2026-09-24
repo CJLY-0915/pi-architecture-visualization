@@ -142,7 +142,7 @@ function createContext(filesByPath) {
 function emptyModel(options, coverage) {
   return {
     schemaVersion: 1,
-    project: { id: options.projectId },
+    project: { id: options.projectId, ...(options.projectName ? { name: options.projectName } : {}) },
     scope: { roots: options.scopeRoots },
     sourceRevision: options.sourceRevision,
     generatedAt: options.generatedAt,

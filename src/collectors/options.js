@@ -148,7 +148,20 @@ function normalizeCollectOptions(rawOptions) {
     }
   }
 
+  // A display name is optional: the model keeps `project.id` as the stable
+  // identity and only carries `name` when the caller supplies a human-readable
+  // one. Omitting it leaves the object exactly as it was.
+  let projectName = null;
+  if (hasOwn(options, 'projectName') && options.projectName !== undefined && options.projectName !== null) {
+    if (typeof options.projectName !== 'string' || options.projectName.trim() === '') {
+      invalid('options.projectName', `"options.projectName" must be a non-empty string or null, received ${describe(options.projectName)}.`);
+    } else {
+      projectName = options.projectName;
+    }
+  }
+
   const scopeRoots = normalizeScopeRoots(options, diagnostics, invalid);
+
   const numeric = normalizeNumericOptions(options, invalid);
 
   let now = () => Date.now();
@@ -163,6 +176,7 @@ function normalizeCollectOptions(rawOptions) {
   return {
     diagnostics,
     projectId,
+    projectName,
     generatedAt,
     sourceRevision,
     scopeRoots,

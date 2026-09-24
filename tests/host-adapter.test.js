@@ -773,3 +773,18 @@ test('the agent tools never accept an in-memory model, only the panel does', asy
     delete global.pi;
   }
 });
+
+test('the panel collect channel reports the workspace name, not a bare host id', async () => {
+  const tree = simpleTree();
+  await withHost(tree, {}, async () => {
+    global.pi.workspace = { get: async () => ({ path: 'E:/work/demo', name: 'Demo Billing', projectId: '431709df-a724-4e91-ac3d-7fa82e6c2688' }) };
+    await plugin.onLoad();
+    const collected = await plugin.onPanelInvoke('architecture.collect', { includeModel: true });
+    assert.equal(collected.ok, true);
+    // The host's projectId is an opaque identity and stays the id; the workspace
+    // name is what the panel shows as the project title.
+    assert.equal(collected.model.project.id, '431709df-a724-4e91-ac3d-7fa82e6c2688');
+    assert.equal(collected.model.project.name, 'Demo Billing');
+    await plugin.onUnload();
+  });
+});

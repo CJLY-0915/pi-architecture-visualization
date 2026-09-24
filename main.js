@@ -124,6 +124,10 @@ async function collectCurrentState(args) {
       .filter((root) => root !== workspacePath)
     : [];
 
+  // `projectId` is the stable identity the host reports and is often an opaque
+  // UUID, so it stays the id. The workspace name is what a person recognises and
+  // goes into `project.name`; without it the panel has nothing to show but the
+  // UUID, which is exactly what a collected model used to display.
   const options = {
     projectId: typeof workspaceMeta.projectId === 'string' && workspaceMeta.projectId !== ''
       ? workspaceMeta.projectId
@@ -131,6 +135,7 @@ async function collectCurrentState(args) {
     generatedAt: new Date().toISOString(),
     scopeRoots,
   };
+  if (typeof workspaceMeta.name === 'string' && workspaceMeta.name.trim() !== '') options.projectName = workspaceMeta.name;
   if (Number.isInteger(request.maxFiles) && request.maxFiles > 0) options.maxFiles = request.maxFiles;
 
   const host = createHostSource(pi, { scopeRoots });
