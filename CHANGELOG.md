@@ -23,7 +23,8 @@
 
 ### 工程细节
 
-- `node --test tests/*.test.js` 350 → **352**：`tests/panel-interactions.test.js` 新增两条——"关系图平移缩放是视图状态、不碰模型"（控件显隐、缩放上下限、指针拖拽与 slop、`buttons` 归零结束拖拽、滚轮无 `deltaY` 时不动视图、重绘不继承旧偏移）与"每条能承载路径的状态行都允许断词"（从渲染器 `<style>` 里读 `.save-state`/`.analysis-status` 的规则体，断言含 `overflow-wrap: anywhere`；harness 看不到布局，所以断在规则被写下的地方）。harness 的 `dispatch` 支持传入事件对象，原有调用不受影响。前一条测试做过变异检查：删掉 `.save-state` 的 `overflow-wrap` 后它立刻失败。
+- `node --test tests/*.test.js` 350 → **353**：`tests/panel-interactions.test.js` 新增三条——"关系图平移缩放是视图状态、不碰模型"（控件显隐、缩放上下限、指针拖拽与 slop、`buttons` 归零结束拖拽、滚轮无 `deltaY` 时不动视图、重绘不继承旧偏移）、"每条能承载路径的状态行都允许断词"（从渲染器 `<style>` 里读 `.save-state`/`.analysis-status` 的规则体，断言含 `overflow-wrap: anywhere`；harness 看不到布局，所以断在规则被写下的地方）、以及"再次采集必须撤回上一份模型的关系图"（先绘制，再采集一个不同模型，断言 `diagram-status` 回 `idle`、`#diagram-surface` 清空）。harness 的 `dispatch` 支持传入事件对象，原有调用不受影响。前两条测试做过变异检查：删掉 `.save-state` 的 `overflow-wrap` 后立刻失败。
+- **1.5.1 正式分发包**：`dist/local.architecture-visualization-1.5.1.piplug`，481,581 字节，SHA-256 `025186b757759d5501cad676410e0ac84cc111a3b1e9c98eb178db6b14221ff3`。由只含运行时集合的干净镜像（`dist/mirror-1.5.1`，44 文件）经官方 `PluginPack` 生成，包内 44 条目全部为未压缩存储、路径相对、无穿越、与镜像逐字节一致，不含 tests/fixtures/docs/`architecture/`/任何会话或缓存文件。`PluginCheck` 通过，仅剩两条已知警告：三个高风险权限需用户显式授权（`agent.prompt.inject`、`agent.tool.register`、`fs.write`），以及 `clipboard.write` 被报为"未使用"——该权限实际由面板 bridge 从渲染器调用（导出预览卡的"复制到剪贴板"），`PluginCheck` 只扫 `main.js` 所以看不到，属误报。分发包本身另做了一次宿主桩冒烟：解包后独立加载 `main.js`，3 条命令与 7 个 agent 工具全部注册且与 manifest 声明一致，关系图通道对 20 节点夹具返回未截断结果，未知通道/非法保存决策/读取失败均干净拒绝，`onUnload` 后无残留注册，27 个运行时模块全部可独立加载，且没有任何命令触发写入。
 - 缩放锚点以 `#diagram-surface` 自身的布局盒为基准，不是 `#diagram-stage` 的 border box：两者相差舞台的边框与内边距，直接用舞台 rect 计算会让指针下的点在每档缩放时漂移几像素。`getBoundingClientRect()` 返回的是已变换的盒，而 `transform-origin: 0 0` 时平移量正好等于它移动的距离，减掉当前偏移就得到布局位置——不需要读任何布局常量。
 - 关系图默认视图不变：`max-width: 100%` 保留，因此 1504px 宽的画布在 458px 舞台里仍然整体可见，缩放与平移是在这个适配视图之上叠加，而不是先把它裁掉。
 

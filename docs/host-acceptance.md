@@ -134,6 +134,14 @@
 - **采集不写任何字节**：全仓库唯一的写入是 `src/host/save-model.js:170`，只能由 `architecture.save` 通道在用户显式选择 `create`/`snapshot`/`overwrite` 时到达。`architecture.collect` 只读。
 - **正式包不会这样**：`watchDevPlugin`（`:97955`）只对开发源插件调用，`.piplug` 安装不注册监视器，因此没有热重载。保存后面板仍会按 `loadModel(save.path)` 从磁盘重读——那是刻意行为，不是缺陷。
 - **规避**：想在没有热重载的情况下试保存流程，把工作区换成插件目录以外的项目；或者接受每次保存后面板重载一次。
+
+## K. 1.5.1（2026-09-24）正式分发包
+
+- **产物**：`dist/local.architecture-visualization-1.5.1.piplug`，481,581 字节，SHA-256 `025186b757759d5501cad676410e0ac84cc111a3b1e9c98eb178db6b14221ff3`。由只含运行时集合的干净镜像（`dist/mirror-1.5.1`，44 文件，与 `tests/package-scope.test.js` 断言的集合逐一致）经官方 `PluginPack` 生成。
+- **`PluginCheck` 通过**（44 文件），两条警告均已定性：`permission.high-risk` 列出 `agent.prompt.inject`、`agent.tool.register`、`fs.write`，三者都是插件功能所必需且需用户在插件页显式授权；`permission.unused` 报 `clipboard.write` 未使用属误报——该权限由面板 bridge 从渲染器调用（导出预览卡的"复制到剪贴板"在 `renderer/index.html:862`），而 `PluginCheck` 只扫 `main.js`，看不到 bridge 调用，权限必须保留。
+- **包内容审计**（自写 ZIP 中央目录读取器，非宿主代码）：44 条目与镜像 44 文件一一对应，全部为未压缩存储（method 0）、路径相对、无 `..` 穿越、无目录条目、无 `.log`/`.tmp`/`.cache`，每个条目大小与磁盘文件一致。不含 tests/fixtures/docs/`architecture/`/`README.md`/`PLAN.md`/`CHANGELOG.md` 及任何会话或缓存文件。
+- **分发包冒烟**（解包到 scratch，宿主桩加载，非开发目录）：3 条命令与 7 个 agent 工具全部注册，且与 `manifest.json` 的 `agentTools` 声明完全一致（无多注册、无漏注册）；`architecture.diagram` 通道对 20 节点夹具返回 `ok:true`、20 节点、未截断；未知通道返回 `unsupported_input`，非法 `decision` 被拒，读取失败带稳定错误码；`onUnload` 后命令与工具注册表均为空；27 个运行时 `.js` 模块全部可独立加载；三个命令实跑期间 `fs.writeText` 零调用——再次印证采集/校验路径不写任何字节。
+- **尚未验证**：P7 第 4 步的安装、启用、升级、禁用、卸载回归未做。注册表中 `local.architecture-visualization` 仍是 `source: "dev"`、版本 1.4.1 的条目（指向本仓库目录，随文件改动热重载，实际运行 1.5.1 代码）。安装正式包前需先移除该 dev 条目，否则同一 id 会有两条记录。此项待用户操作。
 ## J. 已知不一致：invalid model 错误码有三种拼写
 
 - **事实**：同一个"模型未通过结构校验"的条件，在仓库里有三种错误码拼写——`src/host/read-model.js` 与 `src/host/save-model.js` 用大写 `'INVALID_MODEL'`；`src/core/export-preview.js`（以及 1.5.0 新增的 `diagram.js`、`drift.js`）用小写 `'invalid_model'`；`src/core/impact.js` 则把该条件报成 `'unsupported_input'`（`ERROR_CODE.INVALID_MODEL = CODES.UNSUPPORTED_INPUT`）。`error-codes.js` 里**没有** `INVALID_MODEL` 键，三种都是字面量。
