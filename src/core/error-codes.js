@@ -5,6 +5,14 @@
 // existing code must never be renamed or repurposed; new rules add new codes.
 // CODE_MESSAGES holds the canonical description used in documentation and as a
 // fallback when a rule cannot build a contextual message.
+//
+// Known spelling split, recorded rather than silently propagated: the "model
+// failed structural validation" code is spelled `INVALID_MODEL` in src/host/
+// (read-model.js, save-model.js) and `invalid_model` in src/core/
+// (export-preview.js, diagram.js, drift.js), while impact.js reports the same
+// condition as `unsupported_input`. Because an existing code must never be
+// renamed, a caller that switches on this condition has to accept all three
+// spellings until they are unified in one release.
 
 const CODES = Object.freeze({
   MODEL_NOT_OBJECT: 'model_not_object',

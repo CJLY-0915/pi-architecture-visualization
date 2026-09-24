@@ -30,7 +30,7 @@
 
 ### 测试
 
-- `node --test tests/*.test.js` 304 → **346**：新增 `tests/diagram.test.js`（18）、`tests/drift.test.js`（约 20）、面板交互 +3、宿主适配器 +2。
+- `node --test tests/*.test.js` 304 → **350**：新增 `tests/diagram.test.js`（18）、`tests/drift.test.js`（19）、`tests/error-code-spelling.test.js`（4）、面板交互 +3、宿主适配器 +2。
 - 变更集测试钉住"粘贴的路径列表不得悄悄丢条目"与"未解析 1 个、结论完整：否"。
 - 漂移测试覆盖四类发现、三种 verdict、空枚举判 `incomplete`、`maxFindings` 截断与畸形 `observed`。
 - 绘图测试覆盖确定性（两次渲染字节相同）、敌意节点名无法逃逸 XML、未知焦点返回 `invalid_option`、垃圾输入不抛异常。

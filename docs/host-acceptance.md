@@ -111,10 +111,17 @@
 - **已回看**：1.4.1 的 run [35946156310](https://github.com/CJLY-0915/pi-architecture-visualization/actions/runs/35946156310)（commit `fdb9211`，push 触发，2026-09-24T02:10:59Z–02:11:37Z）三平台 `conclusion=success`：macOS 11s、Ubuntu 7s、Windows 35s，每个 job 的 7 个 step 全部 success。证据来自本机未认证请求 GitHub Actions API，不是用户证言。至此 `bb03244` 之后"这条守卫从没在 CI 上跑过"的状态结束；README 与 `host-compatibility.md` 中原有的"待回看"措辞已改为该事实。
 
 ## I. 1.5.0（2026-09-24）关系图 / 变更集 / 架构漂移
-
 - **做了什么**：面板新增"关系图"（`architecture.diagram`）、"变更集影响"（`architecture.impact` 的批量路径 + `changeSet` 汇总）、"架构漂移"（`architecture.drift`）三个能力；首页主操作由"读取模型"改为"采集并生成模型"，读取降为高级入口。**没有新增任何 agent 工具**——三者都只从面板进入，图需要整个模型、漂移是一次刻意的全工作区扫描，都不适合做成 agent 工具。
+
 - **为什么不新增工具**：宿主 `MAX_AGENT_EXTENSIONS_PER_PLUGIN=8` 限制的是 agent 扩展（`extensions/workflow-rule.mjs`），不是 agent 工具，本插件 agent 工具仍是 7 个未触顶；真正的原因是这两个操作要么需要整个模型（没有任何工具 schema 带得了），要么成本是一次全工作区扫描，放进会话里会被无意触发。
-- **验证（本地）**：`node --test tests/*.test.js` 304 → **346**，全绿。新增 `tests/diagram.test.js`（18 条）、`tests/drift.test.js`（约 20 条）、面板交互 +3、宿主适配器 +2。漂移测试用桩宿主跑通真实采集器，因此"扫描侧"不是模拟数据。
+- **验证（本地）**：`node --test tests/*.test.js` 304 → **350**，全绿。新增 `tests/diagram.test.js`（18）、`tests/drift.test.js`（19）、`tests/error-code-spelling.test.js`（4）、面板交互 +3、宿主适配器 +2。漂移测试用桩宿主跑通真实采集器，因此"扫描侧"不是模拟数据。
 - **尚未真机确认**：三个新通道（`architecture.diagram`/`architecture.drift`/变更集表单）**没有**在真实 PI-Desktop 面板里点过；A14 面板采集通道、A15 面板保存通道同样仍未真机确认。这些都要等用户在插件页操作后才能记为已验收，在此之前不算完成。
 - **新集合的干净镜像 `PluginCheck` 待重跑**：运行时集合 41 → 44 文件（新增 `src/core/diagram.js`、`src/core/drift.js`、`src/host/drift-check.js`）。此前 40 文件集合实测无错误，44 文件集合尚未重跑。
 - **面板 DOM 变化**：`renderer/index.html` 新增 `#diagram`/`#drift` 两个 section、`#changeset-form` 一个分析表单；`load-form` 从页面顶部移到 `section#collect` 之后。`tests/panel-interactions.test.js` 的 `querySelectorAll` 硬编码 id 列表已同步加入变更集控件，否则 `setAnalysisBusy` 不会禁用它们。
+
+## J. 已知不一致：invalid model 错误码有三种拼写
+
+- **事实**：同一个"模型未通过结构校验"的条件，在仓库里有三种错误码拼写——`src/host/read-model.js` 与 `src/host/save-model.js` 用大写 `'INVALID_MODEL'`；`src/core/export-preview.js`（以及 1.5.0 新增的 `diagram.js`、`drift.js`）用小写 `'invalid_model'`；`src/core/impact.js` 则把该条件报成 `'unsupported_input'`（`ERROR_CODE.INVALID_MODEL = CODES.UNSUPPORTED_INPUT`）。`error-codes.js` 里**没有** `INVALID_MODEL` 键，三种都是字面量。
+- **为什么现在不统一**：`error-codes.js` 文件头写明"已有错误码不得重命名或改用途"，而三种拼写都已在对外的测试与文档里被断言（`tests/save-model.test.js`、`tests/host-adapter.test.js`、`tests/analysis-tools.test.js`、`tests/export-preview.test.js`）。统一拼写是一次需要同步改调用方的协议变更，不能夹带在功能提交里。
+- **1.5.0 的选择**：两个新模块都在 `src/core/`，与最近的同层模块 `export-preview.js` 保持一致（小写 `'invalid_model'`），没有第四种拼写，也没有改动任何已有拼写。拆分事实已写进 `src/core/error-codes.js` 文件头，并有 `tests/error-code-spelling.test.js` 钉住三种拼写的实际分布，避免被静默改成第五种。
+- **后续**：需要一次专门的协议提交，选一种拼写并同步全部调用方与文档；在那之前，任何 switch 这个条件的地方必须同时接受三种。
